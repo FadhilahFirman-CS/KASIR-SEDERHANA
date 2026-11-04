@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Laporan</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap page-shell">
+    <header class="top page-header-card">
+      <div>
+        <h1>Laporan & Export</h1>
+        <p class="sub">Ringkasan penjualan dan ekspor ke Excel.</p>
+      </div>
+      <div class="today page-header-actions">
+        <button type="button" class="primary" id="exportLaporan">Export Excel</button>
+        <button type="button" class="theme-btn" id="backToKasir">Kembali ke kasir</button>
+      </div>
+    </header>
+
+    <main class="panel page-panel">
+      <div class="chips" id="reportTabs" role="group" aria-label="Jenis laporan">
+        <button type="button" data-r="Mingguan" aria-pressed="true">Mingguan</button>
+        <button type="button" data-r="Bulanan" aria-pressed="false">Bulanan</button>
+      </div>
+
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Rata-rata pendapatan / minggu</h3>
+            <span id="weeklyAvgLabel">Rp 0</span>
+          </div>
+          <div class="chart-bars" id="weeklyChart" aria-label="Grafik rata-rata pendapatan per minggu"></div>
+          <p class="chart-footnote" id="weeklyTrend">Belum ada data minggu.</p>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Rata-rata pendapatan / bulan</h3>
+            <span id="monthlyAvgLabel">Rp 0</span>
+          </div>
+          <div class="chart-bars" id="monthlyChart" aria-label="Grafik rata-rata pendapatan per bulan"></div>
+          <p class="chart-footnote" id="monthlyTrend">Belum ada data bulan.</p>
+        </div>
+      </div>
+
+      <div class="rep-wrap">
+        <table class="rep" id="repTable"></table>
+      </div>
+      <p class="hint" id="repNote">Belum ada transaksi.</p>
+      <p class="status" id="expStatus" role="status"></p>
+
+      <div class="panel" style="margin-top:18px; padding:16px; border-radius:12px;">
+        <div class="hist-head">
+          <h2 style="margin:0;">Riwayat transaksi</h2>
+          <button class="small ghost danger" id="clearReportHistory" type="button">Hapus riwayat</button>
+        </div>
+        <ul class="hist" id="reportHistoryList"></ul>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      function getCurrentStore() {
+        try { return JSON.parse(localStorage.getItem('kasir.currentStore') || 'null'); }
+        catch (e) { return null; }
+      }
+      function storeAwareKey(key) {
+        var store = getCurrentStore();
+        if (!store || !store.id) return key;
+        return 'kasir.store.' + store.id + '.' + String(key).replace(/^kasir\./, '');
+      }
+      function load(key, fallback) {
+        try {
+          var value = localStorage.getItem(storeAwareKey(key));
+          return value ? JSON.parse(value) : fallback;
+        } catch (e) { return fallback; }
+      }
+      function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+      function fmt(n) { return 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(Number(n || 0))); }
+      function p2(n) { return ('0' + n).slice(-2); }
+      function ymd(d) { return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }
+      function qtyOf(t) { return (t.items || []).reduce(function (sum, item) { return sum + (Number(item.qty) || 0); }, 0); }
+      var history = Array.isArray(load('kasir.history', [])) ? load('kasir.history', []) : [];
+      var reportKind = 'Mingguan';
+      var repTable = document.getElementById('repTable');
+      var repNote = document.getElementById('repNote');
+      var expStatus = document.getElementById('expStatus');
+      var tabs = document.getElementById('reportTabs');
+      var backBtn = document.getElementById('backToKasir');
+      var exportBtn = document.getElementById('exportLaporan');
+
+      function periodMeta(kind, d) {
+        if (kind === 'Harian') {
+          return { key: ymd(d), disp: d.toLocaleDateString('id-ID', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) };
+        }
+        if (kind === 'Mingguan') {
+          var year = d.getFullYear();
+          var month = d.getMonth();
+          var day = d.getDate();
+          var week = day <= 7 ? 1 : day <= 14 ? 2 : day <= 21 ? 3 : 4;
+          var firstDay = 1 + ((week - 1) * 7);
+          var lastDay = week === 4 ? new Date(year, month + 1, 0).getDate() : firstDay + 6;
+          var start = new Date(year, month, firstDay);
+          var end = new Date(year, month, lastDay);
+          var key = year + '-' + p2(month + 1) + '-W' + p2(week);
+          var label = 'Minggu ' + week + ' ' + start.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
+          return {
+            key: key,
+            disp: label + ' (' + start.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ' - ' + end.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) + ')'
+          };
+        }
+        return { key: d.getFullYear() + '-' + p2(d.getMonth() + 1), disp: d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) };
+      }
+      function normalizeMethod(method) {
+        var m = String(method || '').trim();
+        var map = { tunai: 'Tunai', qris: 'QRIS', transfer: 'Transfer' };
+        return map[m.toLowerCase()] || m;
+      }
+      function aggregate(kind) {
+        var map = {};
+        history.forEach(function (t) {
+          var m = periodMeta(kind, new Date(t.time));
+          var methodName = normalizeMethod(t.method);
+          var bucket = map[m.key] || (map[m.key] = { key: m.key, label: m.disp, n: 0, qty: 0, total: 0, Tunai: 0, QRIS: 0, Transfer: 0 });
+          bucket.n += 1; bucket.qty += qtyOf(t); bucket.total += Number(t.total) || 0;
+          bucket[methodName] = (bucket[methodName] || 0) + (Number(t.total) || 0);
+        });
+        return Object.keys(map).sort().map(function (key) { return map[key]; });
+      }
+      function buildAverageSeries(kind) {
+        var rows = aggregate(kind).slice(-6);
+        if (!rows.length) return [];
+        return rows.map(function (row) {
+          var avg = row.n ? row.total / row.n : 0;
+          return { label: row.label, value: avg };
+        });
+      }
+
+      function renderAverageChart(containerId, totalLabelId, trendId, series, suffix) {
+        var box = document.getElementById(containerId);
+        var totalLabel = document.getElementById(totalLabelId);
+        var trendBox = document.getElementById(trendId);
+        if (!box || !totalLabel || !trendBox) return;
+        if (!series.length) {
+          box.innerHTML = '<div class="empty">Belum ada data.</div>';
+          totalLabel.textContent = 'Rp 0';
+          trendBox.textContent = 'Belum ada data ' + suffix + '.';
+          return;
+        }
+        var avgValue = series.reduce(function (sum, item) { return sum + Number(item.value || 0); }, 0) / series.length;
+        totalLabel.textContent = fmt(avgValue);
+        var max = Math.max.apply(null, series.map(function (item) { return Number(item.value || 0); })) || 1;
+        box.innerHTML = series.map(function (item) {
+          var height = ((Number(item.value) || 0) / max) * 100;
+          var label = item.label || '';
+          var shortLabel = /^Minggu\s+(\d+)/i.test(label) ? 'M' + label.match(/\d+/)[0] : label;
+          return '<div class="chart-col"><div class="chart-stack"><span class="bar income" style="height: ' + height + '%"></span></div><small title="' + esc(item.label) + '">' + esc(shortLabel) + '</small></div>';
+        }).join('');
+        if (series.length > 1) {
+          var last = Number(series[series.length - 1].value || 0);
+          var prev = Number(series[series.length - 2].value || 0);
+          if (prev > 0) {
+            var diff = ((last - prev) / prev) * 100;
+            trendBox.textContent = 'Perbandingan: ' + (diff >= 0 ? 'naik' : 'turun') + ' ' + Math.abs(diff).toFixed(1) + '% dibanding periode sebelumnya.';
+          } else {
+            trendBox.textContent = 'Periode sebelumnya belum ada data untuk dibandingkan.';
+          }
+        } else {
+          trendBox.textContent = 'Hanya ada 1 periode data untuk dibandingkan.';
+        }
+      }
+
+      function renderChart() {
+        renderAverageChart('weeklyChart', 'weeklyAvgLabel', 'weeklyTrend', buildAverageSeries('Mingguan'), 'minggu');
+        renderAverageChart('monthlyChart', 'monthlyAvgLabel', 'monthlyTrend', buildAverageSeries('Bulanan'), 'bulan');
+      }
+
+      function qtyOf(t) { return (t.items || []).reduce(function (sum, item) { return sum + (Number(item.qty) || 0); }, 0); }
+      function renderHistoryList() {
+        var list = document.getElementById('reportHistoryList');
+        if (!list) return;
+        if (!history.length) {
+          list.innerHTML = '<li style="display:block"><div class="empty">Belum ada transaksi. Struk yang sudah dibayar muncul di sini.</div></li>';
+          return;
+        }
+        list.innerHTML = history.slice(0, 20).map(function (t) {
+          var date = new Date(t.time);
+          var time = date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':');
+          var names = (t.items || []).map(function (c) { return (Number(c.qty) || 0) + '× ' + c.name; }).join(', ');
+          return '<li>' +
+            '<span class="no">' + esc(t.no.slice(-3)) + ' · ' + time + '</span>' +
+            '<span class="items" title="' + esc(names) + '">' + esc(names) + '<span class="badge">' + esc(t.method) + '</span></span>' +
+            '<span class="amt">' + fmt(t.total) + '</span>' +
+            '</li>';
+        }).join('');
+      }
+
+      function renderReport() {
+        renderChart();
+        renderHistoryList();
+        var rows = aggregate(reportKind);
+        if (!rows.length) {
+          repTable.innerHTML = '';
+          repNote.textContent = 'Belum ada transaksi untuk dilaporkan.';
+          return;
+        }
+        var html = '<thead><tr><th>Periode</th><th class="num">Trx</th><th class="num">Barang</th><th class="num">Total</th><th class="num">Tunai</th><th class="num">QRIS</th><th class="num">Transfer</th></tr></thead><tbody>';
+        rows.forEach(function (row) {
+          html += '<tr>' +
+            '<td>' + esc(row.label) + '</td>' +
+            '<td class="num">' + row.n + '</td>' +
+            '<td class="num">' + row.qty + '</td>' +
+            '<td class="num">' + fmt(row.total) + '</td>' +
+            '<td class="num">' + fmt(row.Tunai || 0) + '</td>' +
+            '<td class="num">' + fmt(row.QRIS || 0) + '</td>' +
+            '<td class="num">' + fmt(row.Transfer || 0) + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody>';
+        repTable.innerHTML = html;
+        repNote.textContent = 'Laporan ' + reportKind.toLowerCase() + ' aktif.';
+      }
+      function exportExcel() {
+        if (typeof XLSX === 'undefined') {
+          expStatus.textContent = 'Library Excel belum siap.';
+          return;
+        }
+        var rows = [['Periode', 'Jumlah transaksi', 'Barang terjual', 'Total pendapatan (Rp)', 'Tunai', 'QRIS', 'Transfer']];
+        aggregate(reportKind).forEach(function (row) {
+          rows.push([row.label, row.n, row.qty, row.total, row.Tunai || 0, row.QRIS || 0, row.Transfer || 0]);
+        });
+        var wb = XLSX.utils.book_new();
+        var ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [{wch: 24}, {wch: 18}, {wch: 18}, {wch: 22}, {wch: 18}, {wch: 18}, {wch: 18}];
+        XLSX.utils.book_append_sheet(wb, ws, reportKind);
+        XLSX.writeFile(wb, 'laporan-' + reportKind.toLowerCase() + '-' + new Date().toISOString().slice(0, 10) + '.xlsx');
+        expStatus.textContent = 'File Excel berhasil diunduh.';
+      }
+
+      tabs.addEventListener('click', function (event) {
+        var button = event.target.closest('[data-r]');
+        if (!button) return;
+        reportKind = button.dataset.r;
+        tabs.querySelectorAll('[data-r]').forEach(function (item) {
+          item.setAttribute('aria-pressed', item === button ? 'true' : 'false');
+        });
+        renderReport();
+      });
+      backBtn.addEventListener('click', function () { window.location.href = 'index.html'; });
+      if (exportBtn) exportBtn.addEventListener('click', exportExcel);
+      document.getElementById('clearReportHistory').addEventListener('click', function () {
+        localStorage.removeItem(storeAwareKey('kasir.history'));
+        history = [];
+        renderHistoryList();
+        renderReport();
+      });
+      renderReport();
+      requestAnimationFrame(function () {
+        document.body.classList.add('page-ready');
+      });
+    })();
+  </script>
+</body>
+</html>

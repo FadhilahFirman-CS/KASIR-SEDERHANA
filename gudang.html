@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stok Gudang</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap page-shell">
+    <header class="top page-header-card">
+      <div>
+        <h1>Stok Dapur / Gudang</h1>
+        <p class="sub">Kelola bahan baku toko.</p>
+      </div>
+      <div class="today page-header-actions">
+        <button type="button" class="primary" id="exportGudang">Export Excel</button>
+        <button type="button" class="theme-btn" id="backToKasir">Kembali ke kasir</button>
+      </div>
+    </header>
+
+    <main class="panel page-panel">
+      <form id="gudangForm" class="gudang-form" autocomplete="off">
+        <div class="gudang-field gudang-field-name">
+          <label for="gudangName">Nama bahan</label>
+          <input type="text" id="gudangName" placeholder="mis. Minyak goreng" maxlength="40">
+        </div>
+        <div class="gudang-field">
+          <label for="gudangUnit">Satuan</label>
+          <input type="text" id="gudangUnit" placeholder="kg / liter / dus" maxlength="20">
+        </div>
+        <div class="gudang-field">
+          <label for="gudangStock">Stok saat ini</label>
+          <input type="number" class="mono" id="gudangStock" value="0" min="0" max="99999">
+        </div>
+        <div class="gudang-submit">
+          <button type="submit" class="primary">Simpan stok</button>
+        </div>
+      </form>
+
+      <p class="err" id="gudangErr" role="alert"></p>
+      <div class="pantry-list" id="gudangList"></div>
+      <p class="status" id="gudangStatus" role="status"></p>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      function getCurrentStore() {
+        try { return JSON.parse(localStorage.getItem('kasir.currentStore') || 'null'); }
+        catch (e) { return null; }
+      }
+      function storeAwareKey(key) {
+        var store = getCurrentStore();
+        if (!store || !store.id) return key;
+        return 'kasir.store.' + store.id + '.' + String(key).replace(/^kasir\./, '');
+      }
+      function load(key, fallback) {
+        try {
+          var value = localStorage.getItem(storeAwareKey(key));
+          return value ? JSON.parse(value) : fallback;
+        } catch (e) { return fallback; }
+      }
+      function save(key, value) {
+        try { localStorage.setItem(storeAwareKey(key), JSON.stringify(value)); } catch (e) {}
+      }
+      function esc(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+
+      var pantry = Array.isArray(load('kasir.pantry', [])) ? load('kasir.pantry', []) : [];
+      var form = document.getElementById('gudangForm');
+      var nameInput = document.getElementById('gudangName');
+      var unitInput = document.getElementById('gudangUnit');
+      var stockInput = document.getElementById('gudangStock');
+      var list = document.getElementById('gudangList');
+      var errBox = document.getElementById('gudangErr');
+      var statusBox = document.getElementById('gudangStatus');
+      var backBtn = document.getElementById('backToKasir');
+      var exportBtn = document.getElementById('exportGudang');
+
+      function renderPantry() {
+        if (!list) return;
+        if (!pantry.length) {
+          list.innerHTML = '<div class="empty">Belum ada data stok gudang.</div>';
+          return;
+        }
+        list.innerHTML = pantry.map(function (item, idx) {
+          var stock = Number(item.stock) || 0;
+          var unit = String(item.unit || 'unit').trim() || 'unit';
+          return '<div class="pantry-row">' +
+            '<div class="pantry-info"><div class="pantry-name">' + esc(item.name) + '</div><small>' + esc(unit) + '</small></div>' +
+            '<div class="pantry-stock-wrap"><div class="pantry-stock">' + stock + '</div></div>' +
+            '<div class="pantry-actions">' +
+              '<button type="button" class="small" data-gudang-add="' + idx + '">+1</button>' +
+              '<button type="button" class="small ghost" data-gudang-rm="' + idx + '">Kurangi</button>' +
+            '</div>' +
+            '<button type="button" class="small ghost danger pantry-delete" data-gudang-del="' + idx + '">Hapus</button>' +
+          '</div>';
+        }).join('');
+      }
+
+      function savePantry() {
+        save('kasir.pantry', pantry);
+        renderPantry();
+      }
+
+      function setStatus(message) {
+        if (statusBox) statusBox.textContent = message;
+      }
+
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var name = nameInput.value.trim();
+        var unit = unitInput.value.trim() || 'unit';
+        var stock = parseInt(stockInput.value, 10) || 0;
+        if (!name) {
+          errBox.textContent = 'Isi nama bahan gudang.';
+          nameInput.focus();
+          return;
+        }
+        errBox.textContent = '';
+        var index = pantry.findIndex(function (item) {
+          return String(item.name).toLowerCase() === name.toLowerCase();
+        });
+        if (index >= 0) {
+          pantry[index].unit = unit;
+          pantry[index].stock = Math.max(0, Number(pantry[index].stock || 0) + stock);
+          pantry[index].updatedAt = Date.now();
+          setStatus(name + ' diperbarui.');
+        } else {
+          pantry.push({ name: name, unit: unit, stock: Math.max(0, stock), updatedAt: Date.now() });
+          setStatus(name + ' disimpan ke gudang.');
+        }
+        nameInput.value = '';
+        unitInput.value = '';
+        stockInput.value = 0;
+        savePantry();
+      });
+
+      list.addEventListener('click', function (event) {
+        var addBtn = event.target.closest('[data-gudang-add]');
+        var rmBtn = event.target.closest('[data-gudang-rm]');
+        var delBtn = event.target.closest('[data-gudang-del]');
+
+        if (addBtn) {
+          var addIndex = +addBtn.dataset.gudangAdd;
+          if (pantry[addIndex]) {
+            pantry[addIndex].stock = Math.max(0, Number(pantry[addIndex].stock || 0) + 1);
+            pantry[addIndex].updatedAt = Date.now();
+            savePantry();
+            setStatus(pantry[addIndex].name + ' bertambah 1 unit.');
+          }
+          return;
+        }
+
+        if (rmBtn) {
+          var rmIndex = +rmBtn.dataset.gudangRm;
+          if (pantry[rmIndex]) {
+            pantry[rmIndex].stock = Math.max(0, Number(pantry[rmIndex].stock || 0) - 1);
+            pantry[rmIndex].updatedAt = Date.now();
+            savePantry();
+            setStatus(pantry[rmIndex].name + ' berkurang 1 unit.');
+          }
+          return;
+        }
+
+        if (delBtn) {
+          var delIndex = +delBtn.dataset.gudangDel;
+          if (pantry[delIndex]) {
+            var itemName = pantry[delIndex].name;
+            pantry.splice(delIndex, 1);
+            savePantry();
+            setStatus(itemName + ' dihapus dari gudang.');
+          }
+        }
+      });
+
+      function exportExcel() {
+        if (typeof XLSX === 'undefined') {
+          setStatus('Library Excel belum siap.');
+          return;
+        }
+        var rows = [['Nama bahan', 'Satuan', 'Stok saat ini']];
+        pantry.forEach(function (item) {
+          rows.push([item.name, item.unit || 'unit', Number(item.stock) || 0]);
+        });
+        var wb = XLSX.utils.book_new();
+        var ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [{wch: 28}, {wch: 18}, {wch: 18}];
+        XLSX.utils.book_append_sheet(wb, ws, 'Stok Gudang');
+        XLSX.writeFile(wb, 'stok-gudang-' + new Date().toISOString().slice(0, 10) + '.xlsx');
+        setStatus('File Excel stok gudang berhasil dibuat.');
+      }
+
+      backBtn.addEventListener('click', function () { window.location.href = 'index.html'; });
+      if (exportBtn) exportBtn.addEventListener('click', exportExcel);
+      renderPantry();
+      setStatus('Data stok tersimpan per toko dan perangkat.');
+      requestAnimationFrame(function () {
+        document.body.classList.add('page-ready');
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Kasir Warung</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="auth-screen" id="authScreen">
+    <div class="auth-card">
+      <div class="auth-side">
+        <div class="auth-visual">
+          <span class="auth-badge">Login Toko</span>
+          <h2>Kasir Warung</h2>
+          <p>Masuk dengan username dan password toko Anda untuk membuka data menu, transaksi, dan laporan toko.</p>
+        </div>
+      </div>
+
+      <div class="auth-forms">
+        <div class="auth-tabs" role="tablist" aria-label="Mode akses akun">
+          <button type="button" class="auth-tab active" data-auth-view="login" aria-selected="true">Masuk</button>
+          <button type="button" class="auth-tab" data-auth-view="register" aria-selected="false">Buat akun</button>
+        </div>
+
+        <form id="loginForm" class="auth-form active" autocomplete="off">
+          <label for="loginUser">Username</label>
+          <input type="text" id="loginUser" placeholder="contoh: warung-maju" required>
+          <label for="loginPass">Password</label>
+          <input type="password" id="loginPass" placeholder="contoh: 12345" required>
+          <button type="submit" class="primary">Masuk</button>
+        </form>
+
+        <form id="registerForm" class="auth-form" autocomplete="off" hidden>
+          <h3>Buat akun kasir baru</h3>
+          <label for="registerName">Nama toko / warung</label>
+          <input type="text" id="registerName" placeholder="contoh: Warung Maju" required>
+          <label for="registerUser">Username</label>
+          <input type="text" id="registerUser" placeholder="otomatis dari nama toko" required>
+          <label for="registerPass">Password</label>
+          <input type="password" id="registerPass" placeholder="buat password" required>
+          <button type="submit" class="ghost">Buat akun</button>
+        </form>
+
+        <p class="err" id="loginErr" role="alert"></p>
+        <p class="hint" id="registerMsg" role="status"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap" id="appShell" hidden>
+    <header class="top">
+      <div>
+        <h1 id="shopTitle">Kasir Warung</h1>
+        <p class="sub">Input barang dan harga, hitung total, terima pembayaran, struk keluar otomatis.</p>
+      </div>
+      <div class="today" aria-label="Ringkasan hari ini">
+        <div class="chip"><small>Waktu</small><b id="clockV" style="font-size:0.9rem">-</b></div>
+        <div class="chip"><small>Transaksi hari ini</small><b id="sumCount">0</b></div>
+        <div class="chip"><small>Pendapatan hari ini</small><b id="sumTotal">Rp 0</b></div>
+        <button type="button" class="theme-btn" id="openPantryBtn">Stok gudang</button>
+        <button type="button" class="theme-btn" id="openReportPageBtn">Laporan</button>
+        <button type="button" class="theme-btn" id="themeBtn">Mode gelap</button>
+        <button type="button" class="theme-btn" id="logoutBtn" style="margin-left:4px;">Keluar</button>
+      </div>
+    </header>
+
+    <div class="quick-links" aria-label="Akses halaman utama">
+      <button type="button" class="small ghost" id="openPantryBtnSecondary">Stok gudang</button>
+      <button type="button" class="small ghost" id="openReportPageBtnSecondary">Laporan</button>
+    </div>
+
+    <div class="app">
+      <div class="col">
+        <section class="panel" aria-labelledby="h-input">
+          <h2 id="h-input">Input barang</h2>
+          <form id="itemForm" autocomplete="off">
+            <div class="form-grid">
+              <div class="f-name item-name-wrap">
+                <label for="inName">Nama barang</label>
+                <input type="text" id="inName" placeholder="mis. Kopi Susu" maxlength="40" autocomplete="off">
+                <div id="productSuggestions" class="suggestions" hidden></div>
+              </div>
+              <div><label for="inPrice">Harga satuan (Rp)</label><input type="text" class="mono" id="inPrice" inputmode="numeric" placeholder="18000"></div>
+              <div><label for="inQty">Jumlah</label><input type="number" class="mono" id="inQty" value="1" min="1" max="999"></div>
+            </div>
+            <div class="form-actions" style="justify-content:flex-end">
+              <button type="submit" class="primary">Tambah ke nota</button>
+            </div>
+            <p class="err" id="itemErr" role="alert"></p>
+          </form>
+        </section>
+
+        <section class="panel" aria-labelledby="h-menu">
+          <h2 id="h-menu">Menu cepat</h2>
+          <div id="menuGrid"></div>
+          <p class="hint">Ketuk untuk menambah satu porsi ke nota. Tanda × menghapus menu dari daftar.</p>
+        </section>
+
+        <section class="panel" aria-labelledby="h-manage">
+          <h2 id="h-manage">Kelola menu</h2>
+          <h3 class="sub-h" style="margin-top:0">Tambah menu baru</h3>
+          <form id="menuForm" autocomplete="off">
+            <div class="form-grid menu-fields">
+              <div class="f-name"><label for="mName">Nama menu</label><input type="text" id="mName" placeholder="mis. Cappuccino" maxlength="40"></div>
+              <div><label for="mPrice">Harga (Rp)</label><input type="text" class="mono" id="mPrice" inputmode="numeric" placeholder="20000"></div>
+              <div><label for="mCat">Kategori</label><select id="mCat"><option>Makanan</option><option selected>Minuman</option><option>Camilan</option></select></div>
+            </div>
+            <div class="form-actions" style="justify-content:flex-end">
+              <button type="submit" class="primary">Simpan menu</button>
+            </div>
+            <p class="err" id="menuErr" role="alert"></p>
+          </form>
+
+          <h3 class="sub-h">Daftar menu</h3>
+          <div class="manage-tools">
+            <input type="search" id="mSearch" placeholder="Cari nama menu" aria-label="Cari nama menu">
+            <div class="chips" id="mFilter" role="group" aria-label="Filter kategori">
+              <button type="button" data-f="Semua" aria-pressed="true">Semua</button>
+              <button type="button" data-f="Makanan" aria-pressed="false">Makanan</button>
+              <button type="button" data-f="Minuman" aria-pressed="false">Minuman</button>
+              <button type="button" data-f="Camilan" aria-pressed="false">Camilan</button>
+            </div>
+          </div>
+          <ul class="manage-list" id="manageList"></ul>
+          <p class="hint">Ketuk Edit untuk mengubah nama, harga, atau kategori. Perubahan langsung tampil di Menu cepat.</p>
+          <div class="row-actions">
+            <button type="button" class="small ghost danger" id="resetMenu">Kembalikan menu contoh</button>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="h-qris">
+          <h2 id="h-qris">Pengaturan QRIS</h2>
+          <label for="qrisFile">Unggah gambar QRIS toko (screenshot atau foto QR)</label>
+          <input type="file" id="qrisFile" accept="image/*" style="width:100%;margin-bottom:12px">
+          <label for="qrisInput">Atau tempel teks kode QRIS</label>
+          <textarea id="qrisInput" rows="4" placeholder="000201010211..." spellcheck="false"></textarea>
+          <div class="row-actions">
+            <button type="button" class="primary" id="qrisSave">Simpan QRIS</button>
+            <button type="button" class="ghost danger" id="qrisClear">Hapus</button>
+          </div>
+          <p class="hint" id="qrisStatus" role="status">Belum disetel. Unggah gambar QRIS toko Anda, atau tempel teks kodenya (panjang, diawali 000201). Nomor seperti ID102... adalah NMID, bukan kode QRIS. Setelah tersimpan, QR di kasir otomatis berisi nominal sesuai total belanja.</p>
+        </section>
+
+        <section class="panel" aria-labelledby="h-pantry" hidden>
+          <h2 id="h-pantry">Stok dapur / gudang</h2>
+          <form id="pantryForm" autocomplete="off">
+            <div class="form-grid menu-fields">
+              <div class="f-name"><label for="pName">Nama bahan</label><input type="text" id="pName" placeholder="mis. Minyak goreng" maxlength="40"></div>
+              <div><label for="pUnit">Satuan</label><input type="text" id="pUnit" placeholder="mis. liter / kg / dus" maxlength="20"></div>
+              <div><label for="pStock">Stok awal / saat ini</label><input type="number" class="mono" id="pStock" value="0" min="0" max="99999"></div>
+            </div>
+            <div class="form-actions" style="justify-content:flex-end">
+              <button type="submit" class="primary">Simpan stok</button>
+            </div>
+            <p class="err" id="pantryErr" role="alert"></p>
+          </form>
+          <div class="pantry-list" id="pantryList"></div>
+        </section>
+
+        <section class="panel" aria-labelledby="h-rep" hidden>
+          <h2 id="h-rep">Laporan &amp; ekspor</h2>
+          <div class="chips" id="repTabs" role="group" aria-label="Jenis laporan">
+            <button type="button" data-r="Harian" aria-pressed="true">Harian</button>
+            <button type="button" data-r="Mingguan" aria-pressed="false">Mingguan</button>
+            <button type="button" data-r="Bulanan" aria-pressed="false">Bulanan</button>
+          </div>
+          <div class="rep-wrap"><table class="rep" id="repTable"></table></div>
+          <p class="hint" id="repNote">Belum ada transaksi untuk dilaporkan. Laporan terisi setelah ada pembayaran.</p>
+
+          <div class="exp">
+            <button type="button" class="primary" id="expXlsx" disabled>Unduh Excel (.xlsx), semua laporan</button>
+            <button type="button" id="expCopy" hidden>Salin tabel untuk ditempel ke Excel</button>
+          </div>
+          <p class="status" id="expStatus" role="status"></p>
+          <p class="hint">File Excel berisi beberapa lembar laporan: Harian, Mingguan, Bulanan, Transaksi, Detail Barang, Per Barang, dan Penutupan. Riwayat tersimpan di browser perangkat ini, jadi unduh laporan secara berkala sebelum menghapus riwayat atau data browser.</p>
+
+          <div class="close-block" style="margin-top: 18px; padding-top: 12px; border-top:1px solid var(--line);">
+            <h3 class="sub-h" style="margin-top:0">Penutupan hari</h3>
+            <div class="form-grid menu-fields">
+              <div><label for="closeIncome">Pemasukan tambahan (Rp)</label><input type="text" class="mono" id="closeIncome" inputmode="numeric" placeholder="0"></div>
+              <div><label for="closeExpense">Pengeluaran (Rp)</label><input type="text" class="mono" id="closeExpense" inputmode="numeric" placeholder="0"></div>
+              <div class="f-name"><label for="closeNote">Catatan</label><input type="text" id="closeNote" placeholder="mis. Setoran harian, beli stok, dll"></div>
+            </div>
+            <div class="row-actions">
+              <button type="button" class="primary" id="closeDayBtn">Simpan penutupan hari</button>
+            </div>
+            <p class="hint" id="closeStatus" role="status">Belum ada data tutup hari.</p>
+            <div class="close-stock-summary" id="closeStockSummary" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="h-hist">
+          <div class="hist-head">
+            <h2 id="h-hist">Riwayat transaksi</h2>
+            <button class="small ghost danger" id="clearHist" type="button">Hapus riwayat</button>
+          </div>
+          <ul class="hist" id="histList"></ul>
+        </section>
+      </div>
+
+      <div class="col">
+        <section class="panel" id="cartPanel" aria-labelledby="h-cart">
+          <h2 id="h-cart">Nota berjalan</h2>
+          <ul class="cart-list" id="cartList"></ul>
+
+          <div class="totals">
+            <div class="trow"><span>Subtotal</span><span class="v" id="tSub">Rp 0</span></div>
+            <div class="trow"><label for="inDisc" style="margin:0">Diskon (Rp)</label><input type="text" class="mono" id="inDisc" inputmode="numeric" placeholder="0"></div>
+            <div class="trow grand"><span>Total</span><span class="v" id="tTotal">Rp 0</span></div>
+          </div>
+
+          <div class="seg" role="radiogroup" aria-label="Metode pembayaran">
+            <label><input type="radio" name="method" value="Tunai" checked><span>Tunai</span></label>
+            <label><input type="radio" name="method" value="QRIS"><span>QRIS</span></label>
+            <label><input type="radio" name="method" value="Transfer"><span>Transfer</span></label>
+          </div>
+
+          <div id="cashBox" style="margin-top:12px">
+            <label for="inPaid">Uang diterima (Rp)</label>
+            <input type="text" class="mono" id="inPaid" inputmode="numeric" placeholder="0">
+            <div class="quick" id="quickCash"></div>
+            <div class="change" id="changeBox" style="margin-top:10px"><span id="changeLabel">Kembalian</span><span class="v" id="changeVal">Rp 0</span></div>
+          </div>
+
+          <div class="qris" id="qrisBox" hidden>
+            <div id="qrisQr" style="width:100%;display:flex;justify-content:center"></div>
+            <div class="qris-amt" id="qrisAmt">Rp 0</div>
+            <p class="qris-note" id="qrisNote"></p>
+          </div>
+
+          <div class="pay-actions">
+            <button class="primary" id="payBtn" type="button" disabled>Bayar</button>
+            <button id="resetBtn" type="button" class="ghost">Kosongkan</button>
+          </div>
+        </section>
+
+        <section class="panel receipt-wrap" id="receiptPanel" aria-labelledby="h-rc" hidden>
+          <h2 id="h-rc" style="margin:0">Struk pembayaran</h2>
+          <div class="receipt" id="receipt"></div>
+          <p class="status" id="copyStatus" role="status"></p>
+          <div class="rc-actions">
+            <button type="button" id="copyBtn">Salin struk</button>
+            <button type="button" class="primary" id="newBtn">Transaksi baru</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js" onerror="this.remove()"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', function () {
+      requestAnimationFrame(function () {
+        document.body.classList.add('page-ready');
+      });
+    });
+  </script>
+  <script src="script.js" defer></script>
+</body>
+</html>
