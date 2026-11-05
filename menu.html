@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kelola Menu - Kasir Warung</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="page-ready">
+  <main class="wrap" style="max-width: 900px; margin: 0 auto; padding-top: 28px">
+    <header class="top" style="margin-bottom: 18px">
+      <div><h1>Kelola menu</h1><p class="sub">Tambah, ubah, atau hapus menu toko.</p></div>
+      <button type="button" class="theme-btn" id="backBtn">Kembali ke dashboard</button>
+    </header>
+    <section class="panel">
+      <h2>Tambah menu baru</h2>
+      <form id="menuForm">
+        <div class="form-grid menu-fields">
+          <div class="f-name"><label for="name">Nama menu</label><input type="text" id="name" maxlength="40" autocomplete="off" required placeholder="mis. Cappuccino"></div>
+          <div><label for="price">Harga (Rp)</label><input type="text" id="price" class="mono" inputmode="numeric" autocomplete="off" required placeholder="20000"></div>
+          <div><label for="cat">Kategori</label><select id="cat"><option>Makanan</option><option selected>Minuman</option><option>Camilan</option></select></div>
+        </div>
+        <div class="form-actions" style="justify-content: flex-end"><button class="primary">Simpan menu</button></div>
+        <p class="err" id="err"></p>
+      </form>
+    </section>
+    <section class="panel">
+      <h2>Daftar menu</h2>
+      <input type="search" id="search" placeholder="Cari nama menu">
+      <ul class="manage-list" id="list"></ul>
+      <button type="button" class="small ghost danger" id="reset">Resatart Menu Dari 0</button>
+    </section>
+  </main>
+  <script src="menu-page.js"></script>
+</body>
+</html>

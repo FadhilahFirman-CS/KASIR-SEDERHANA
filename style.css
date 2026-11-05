@@ -177,8 +177,9 @@ input[type="text"], input[type="number"], input[type="search"] {
   caret-color: #0f1d1a;
   box-shadow: inset 0 1px 2px rgba(15, 29, 26, 0.05);
 }
-input[type="text"]::placeholder, input[type="number"]::placeholder, input[type="search"]::placeholder {
-  color: #667b77; opacity: 1;
+input[type="text"]::placeholder, input[type="number"]::placeholder, input[type="search"]::placeholder,
+textarea::placeholder {
+  color: #667b77; opacity: 0.48;
 }
 input.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 input:-webkit-autofill,
@@ -436,6 +437,21 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .menu-item:hover { box-shadow: 0 6px 16px -8px rgba(10, 30, 25, 0.35); }
 .av { grid-row: span 2; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; font-style: normal; font-weight: 700; font-family: var(--font-display); background: hsl(var(--h) 60% 50% / 0.16); color: color-mix(in srgb, hsl(var(--h) 65% 42%) 70%, var(--fg)); }
 .receipt { position: relative; padding-bottom: 32px; -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 14px 100%; mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 14px 100%; }
+
+@media print {
+  @page { size: 80mm auto; margin: 4mm; }
+  body { background: #fff !important; color: #000 !important; }
+  body > *:not(.wrap), .top, .quick-links, .wrap > header, .app > .col > *:not(#receiptPanel),
+  #receiptPanel > h2, #receiptPanel > .status, #receiptPanel > .rc-actions { display: none !important; }
+  .wrap, .app, .app > .col, #receiptPanel, .receipt {
+    display: block !important; width: 100% !important; max-width: none !important;
+    margin: 0 !important; padding: 0 !important; border: 0 !important;
+    box-shadow: none !important; background: #fff !important;
+  }
+  .receipt { color: #000 !important; -webkit-mask: none !important; mask: none !important; }
+  .receipt pre { font-size: 11px !important; line-height: 1.35 !important; }
+  .receipt .stamp { display: none !important; }
+}
 .stamp { position: absolute; top: 12px; right: 12px; border: 2px solid #0e6b5a; color: #0e6b5a; font-family: var(--font-display); font-weight: 700; letter-spacing: 0.14em; font-size: 0.85rem; padding: 2px 8px; border-radius: 4px; transform: rotate(-8deg); opacity: 0.85; }
 .toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 99px; font-weight: 600; font-size: 0.9rem; opacity: 0; pointer-events: none; z-index: 20; max-width: calc(100% - 32px); text-align: center; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }

@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pengaturan QRIS - Kasir Warung</title><link rel="stylesheet" href="style.css">
+</head>
+<body class="page-ready">
+  <main class="wrap" style="max-width:760px;margin:0 auto;padding-top:28px">
+    <header class="top" style="margin-bottom:18px"><div><h1>Pengaturan QRIS</h1><p class="sub" id="storeName">Kelola kode QRIS toko Anda.</p></div><button type="button" class="theme-btn" id="backBtn">Kembali ke dashboard</button></header>
+    <section class="panel"><h2>QRIS toko</h2><label for="qrisFile">Unggah gambar QRIS toko</label><input type="file" id="qrisFile" accept="image/*" style="width:100%;margin-bottom:12px"><label for="qrisInput">Atau tempel teks kode QRIS</label><textarea id="qrisInput" rows="5" placeholder="000201010211..." spellcheck="false"></textarea><div class="row-actions"><button type="button" class="primary" id="qrisSave">Simpan QRIS</button><button type="button" class="ghost danger" id="qrisClear">Hapus</button></div><p class="hint" id="qrisStatus" role="status"></p></section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="qris-page.js"></script>
+</body></html>

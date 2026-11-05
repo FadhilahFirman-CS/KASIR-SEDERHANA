@@ -63,20 +63,16 @@
         <div class="chip"><small>Pendapatan hari ini</small><b id="sumTotal">Rp 0</b></div>
         <button type="button" class="theme-btn" id="openPantryBtn">Stok gudang</button>
         <button type="button" class="theme-btn" id="openReportPageBtn">Laporan</button>
-        <button type="button" class="theme-btn" id="themeBtn">Mode gelap</button>
+        <button type="button" class="theme-btn" id="openQrisBtn">QRIS</button>
+        <button type="button" class="theme-btn" id="openManageMenuBtn">Kelola menu</button>
         <button type="button" class="theme-btn" id="logoutBtn" style="margin-left:4px;">Keluar</button>
       </div>
     </header>
 
-    <div class="quick-links" aria-label="Akses halaman utama">
-      <button type="button" class="small ghost" id="openPantryBtnSecondary">Stok gudang</button>
-      <button type="button" class="small ghost" id="openReportPageBtnSecondary">Laporan</button>
-    </div>
-
     <div class="app">
       <div class="col">
         <section class="panel" aria-labelledby="h-input">
-          <h2 id="h-input">Input barang</h2>
+          <h2 id="h-input">Cari menu</h2>
           <form id="itemForm" autocomplete="off">
             <div class="form-grid">
               <div class="f-name item-name-wrap">
@@ -100,7 +96,7 @@
           <p class="hint">Ketuk untuk menambah satu porsi ke nota. Tanda × menghapus menu dari daftar.</p>
         </section>
 
-        <section class="panel" aria-labelledby="h-manage">
+        <section class="panel" aria-labelledby="h-manage" hidden>
           <h2 id="h-manage">Kelola menu</h2>
           <h3 class="sub-h" style="margin-top:0">Tambah menu baru</h3>
           <form id="menuForm" autocomplete="off">
@@ -132,7 +128,7 @@
           </div>
         </section>
 
-        <section class="panel" aria-labelledby="h-qris">
+        <section class="panel" aria-labelledby="h-qris" id="qrisSettingsPanel" hidden>
           <h2 id="h-qris">Pengaturan QRIS</h2>
           <label for="qrisFile">Unggah gambar QRIS toko (screenshot atau foto QR)</label>
           <input type="file" id="qrisFile" accept="image/*" style="width:100%;margin-bottom:12px">
@@ -193,7 +189,7 @@
           </div>
         </section>
 
-        <section class="panel" aria-labelledby="h-hist">
+        <section class="panel" aria-labelledby="h-hist" hidden>
           <div class="hist-head">
             <h2 id="h-hist">Riwayat transaksi</h2>
             <button class="small ghost danger" id="clearHist" type="button">Hapus riwayat</button>
@@ -244,6 +240,7 @@
           <p class="status" id="copyStatus" role="status"></p>
           <div class="rc-actions">
             <button type="button" id="copyBtn">Salin struk</button>
+            <button type="button" id="printBtn">Cetak struk</button>
             <button type="button" class="primary" id="newBtn">Transaksi baru</button>
           </div>
         </section>
@@ -256,7 +253,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-config.js" onerror="this.remove()"></script>
+  <script src="supabase-config.js"></script>
   <script>
     window.addEventListener('DOMContentLoaded', function () {
       requestAnimationFrame(function () {

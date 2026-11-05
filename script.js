@@ -14,10 +14,25 @@
     try {
       var key = storeAwareKey(k);
       localStorage.setItem(key, JSON.stringify(v));
+      syncStoreData(k, v);
       return localStorage.getItem(key) === JSON.stringify(v);
     } catch (e) {
       return false;
     }
+  }
+  function syncStoreData(k, v) {
+    if (!currentStore || !window.supabaseClient) return;
+    window.supabaseClient.from("store_data").upsert({ store_id: String(currentStore.id), data_key: String(k).replace(/^kasir\./, ""), data: v, updated_at: new Date().toISOString() }, { onConflict: "store_id,data_key" })
+      .catch(function () { /* localStorage tetap menjadi fallback offline */ });
+  }
+  function hydrateStoreData(done) {
+    if (!currentStore || !window.supabaseClient) { if (done) done(); return; }
+    window.supabaseClient.from("store_data").select("data_key,data").eq("store_id", currentStore.id).then(function (result) {
+      if (!result.error && Array.isArray(result.data)) result.data.forEach(function (row) {
+        localStorage.setItem(storeAwareKey("kasir." + row.data_key), JSON.stringify(row.data));
+      });
+      if (done) done();
+    }).catch(function () { if (done) done(); });
   }
   function esc(s) { return String(s).replace(/[&<>\"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 
@@ -92,7 +107,8 @@
       return String(acc.username).toLowerCase() === String(username).trim().toLowerCase() && String(acc.password) === String(password).trim();
     }) || null;
   }
-  clearDemoData();
+  // Penyimpanan aplikasi menggunakan localStorage browser.
+  // Data lokal tidak dihapus otomatis saat halaman dimuat ulang.
 
   function createStoreAccount(storeName, username, password) {
     var safeName = String(storeName || "").trim();
@@ -177,11 +193,22 @@
 
   function refreshStoreData() {
     if (!currentStore) return;
+    hydrateStoreData(function () {
+      refreshStoreDataLocal();
+      if ($("appShell") && !$("appShell").hidden) {
+        renderMenu(); renderManage(); renderPantryList(); renderCart(); renderHistory(); renderQrisStatus();
+      }
+    });
+  }
+  function refreshStoreDataLocal() {
     menu = load("kasir.menu", defaultMenu);
     if (!Array.isArray(menu)) menu = defaultMenu;
     menu.forEach(function (m) { if (CATS.indexOf(m.cat) < 0) m.cat = catOf[String(m.name).toLowerCase()] || "Makanan"; });
     history = load("kasir.history", []);
     qrisPayload = load("kasir.qris", "");
+    if (!qrisPayload) {
+      try { qrisPayload = localStorage.getItem("kasir.qris") || ""; } catch (e) { qrisPayload = ""; }
+    }
     if (typeof qrisPayload !== "string") qrisPayload = "";
     $("shopTitle").textContent = currentStore.name;
   }
@@ -447,21 +474,30 @@
       box.innerHTML = '<div class="empty">Tambahkan barang ke nota, lalu QR dengan nominal total muncul di sini.</div>';
       note.textContent = ""; return;
     }
-    var text = qrisPayload ? toDynamic(qrisPayload, tot) : null, demo = !text;
+    var text = qrisPayload ? toDynamic(qrisPayload, tot) : null;
+    var demo = !qrisPayload;
+    var staticQris = !!qrisPayload && !text;
     if (demo) text = "CONTOH QRIS - BELUM DISETEL - " + rp(tot);
+    if (staticQris) text = qrisPayload;
     try {
       box.innerHTML = '<div class="qr-frame">' + qrSvg(text) + '</div>';
     } catch (e) {
       box.innerHTML = '<div class="empty">QR gagal dibuat. Muat ulang halaman lalu coba lagi.</div>'; note.textContent = ""; return;
     }
     if (demo) { note.className = "qris-note warn"; note.textContent = "QR contoh, belum bisa dipakai membayar. Isi kode QRIS toko di Pengaturan QRIS."; }
+    else if (staticQris) { note.className = "qris-note warn"; note.textContent = "QRIS toko berhasil dimuat. Nominal mungkin perlu dimasukkan manual oleh pembeli."; }
     else { var nm = checkPayload(qrisPayload).name; note.textContent = (nm ? nm + ". " : "") + "Pembeli memindai dengan e-wallet atau mobile banking. Nominal sudah terisi."; }
   }
   function renderQrisStatus() {
     var st = $("qrisStatus");
     if (!qrisPayload) { st.textContent = "Belum disetel. Unggah gambar QRIS toko Anda, atau tempel teks kodenya (panjang, diawali 000201). Nomor seperti ID102... adalah NMID, bukan kode QRIS. Setelah tersimpan, QR di kasir otomatis berisi nominal sesuai total belanja."; return; }
     var c = checkPayload(qrisPayload);
-    st.textContent = c.ok ? "Tersimpan" + (c.name ? " untuk " + c.name : "") + ". QR di kasir memakai nominal total belanja." : c.msg;
+    if (c.ok) {
+      st.textContent = "Tersimpan" + (c.name ? " untuk " + c.name : "") + ". QRIS berhasil tersambung ke kasir.";
+      toast("QRIS berhasil tersambung ke kasir");
+    } else {
+      st.textContent = c.msg;
+    }
   }
   $("qrisInput").value = qrisPayload;
   $("qrisSave").addEventListener("click", function () {
@@ -807,11 +843,8 @@
   $("openReportPageBtn").addEventListener("click", function () {
     window.location.href = "laporan.html";
   });
-  $("openPantryBtnSecondary").addEventListener("click", function () {
-    window.location.href = "gudang.html";
-  });
-  $("openReportPageBtnSecondary").addEventListener("click", function () {
-    window.location.href = "laporan.html";
+  $("openQrisBtn").addEventListener("click", function () {
+    window.location.assign(new URL("qris.html", document.baseURI).href);
   });
   $("cartList").addEventListener("click", function (e) {
     var b = e.target.closest("button"); if (!b) return;
@@ -828,6 +861,10 @@
   $("closeDayBtn").addEventListener("click", saveClosingRecord);
   $("resetBtn").addEventListener("click", resetSale);
   $("newBtn").addEventListener("click", function () { $("receiptPanel").hidden = true; $("cartPanel").hidden = false; $("inName").focus(); });
+  $("printBtn").addEventListener("click", function () {
+    if (!lastReceiptText) return;
+    window.print();
+  });
   $("copyBtn").addEventListener("click", function () {
     var st = $("copyStatus");
     function fallback() {
@@ -1159,19 +1196,9 @@
     } catch (e) { done(browserDownloadApi()); }
   })();
 
-  function effTheme() {
-    var a = document.documentElement.getAttribute("data-theme");
-    if (a) return a;
-    return window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
-  function updateThemeBtn() { $("themeBtn").textContent = effTheme() === "dark" ? "Mode terang" : "Mode gelap"; }
-  $("themeBtn").addEventListener("click", function () {
-    var next = effTheme() === "dark" ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", next); save("kasir.theme", next); updateThemeBtn();
+  $("openManageMenuBtn").addEventListener("click", function () {
+    window.location.assign(new URL("menu.html", document.baseURI).href);
   });
-  var savedTheme = load("kasir.theme", null);
-  if (savedTheme === "dark" || savedTheme === "light") document.documentElement.setAttribute("data-theme", savedTheme);
-  updateThemeBtn();
 
   function tick() {
     var d = new Date();
