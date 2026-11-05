@@ -60,6 +60,23 @@ create table if not exists public.store_data (
   primary key (store_id, data_key)
 );
 
+create table if not exists public.store_accounts (
+  local_id text primary key,
+  name text not null,
+  username text unique not null,
+  password text not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.store_profiles (
+  local_id text primary key,
+  auth_user_id uuid unique not null,
+  name text not null,
+  username text unique not null,
+  email text unique not null,
+  created_at timestamptz not null default now()
+);
+
 alter table public.stores enable row level security;
 alter table public.menus enable row level security;
 alter table public.inventory enable row level security;
@@ -67,6 +84,8 @@ alter table public.qris_settings enable row level security;
 alter table public.transactions enable row level security;
 alter table public.transaction_items enable row level security;
 alter table public.store_data enable row level security;
+alter table public.store_accounts enable row level security;
+alter table public.store_profiles enable row level security;
 
 -- Demo policies: replace with authenticated-user policies before production use.
 create policy "demo stores access" on public.stores for all using (true) with check (true);
@@ -76,3 +95,5 @@ create policy "demo qris access" on public.qris_settings for all using (true) wi
 create policy "demo transactions access" on public.transactions for all using (true) with check (true);
 create policy "demo transaction items access" on public.transaction_items for all using (true) with check (true);
 create policy "demo store data access" on public.store_data for all using (true) with check (true);
+create policy "demo store accounts access" on public.store_accounts for all using (true) with check (true);
+create policy "demo store profiles access" on public.store_profiles for all using (true) with check (true);

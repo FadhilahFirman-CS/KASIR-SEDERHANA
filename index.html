@@ -40,13 +40,15 @@
           <input type="text" id="registerName" placeholder="contoh: Warung Maju" required>
           <label for="registerUser">Username</label>
           <input type="text" id="registerUser" placeholder="otomatis dari nama toko" required>
+          <label for="registerEmail">Email untuk autentikasi database</label>
+          <input type="email" id="registerEmail" placeholder="contoh: toko@email.com" required>
           <label for="registerPass">Password</label>
           <input type="password" id="registerPass" placeholder="buat password" required>
           <button type="submit" class="ghost">Buat akun</button>
         </form>
 
         <p class="err" id="loginErr" role="alert"></p>
-        <p class="hint" id="registerMsg" role="status"></p>
+        <p class="hint" id="registerMsg" role="status">Pendaftaran wajib menggunakan email untuk autentikasi database.</p>
       </div>
     </div>
   </div>

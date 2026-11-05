@@ -124,6 +124,9 @@
     var account = { id: "store-" + safeUser + "-" + Date.now(), name: safeName, username: safeUser, password: safePass };
     accounts.push(account);
     localStorage.setItem("kasir.accounts", JSON.stringify(accounts));
+    if (window.supabaseClient) {
+      window.supabaseClient.from("store_accounts").upsert({ local_id: account.id, name: account.name, username: account.username, password: account.password }, { onConflict: "local_id" }).catch(function () {});
+    }
     return account;
   }
   ensureDefaultAccounts();
@@ -360,11 +363,20 @@
     });
   });
 
-  $("loginForm").addEventListener("submit", function (e) {
+  $("loginForm").addEventListener("submit", async function (e) {
     e.preventDefault();
     var user = $("loginUser").value.trim();
     var pass = $("loginPass").value.trim();
     var acc = findAccount(user, pass);
+    if (window.supabaseClient) {
+      var profileResult = await window.supabaseClient.from("store_profiles").select("*").eq("username", user.toLowerCase()).maybeSingle();
+      if (!profileResult.error && profileResult.data) {
+        var authResult = await window.supabaseClient.auth.signInWithPassword({ email: profileResult.data.email, password: pass });
+        if (authResult.error) { $("loginErr").textContent = "Username atau password salah."; return; }
+        acc = acc || { id: profileResult.data.local_id, name: profileResult.data.name, username: profileResult.data.username, password: pass };
+        if (!findAccount(user, pass)) { var stored = getAccounts(); stored.push(acc); localStorage.setItem("kasir.accounts", JSON.stringify(stored)); }
+      }
+    }
     if (!acc) {
       $("loginErr").textContent = "Username atau password salah.";
       return;
@@ -375,19 +387,26 @@
   $("registerName").addEventListener("input", function () {
     $("registerUser").value = normalizeStoreUsername(this.value);
   });
-  $("registerForm").addEventListener("submit", function (e) {
+  $("registerForm").addEventListener("submit", async function (e) {
     e.preventDefault();
     var name = $("registerName").value.trim();
     var user = $("registerUser").value.trim();
+    var email = $("registerEmail").value.trim().toLowerCase();
     var pass = $("registerPass").value.trim();
     try {
+      if (!email) throw new Error("Email wajib digunakan untuk autentikasi database.");
+      if (!window.supabaseClient) throw new Error("Koneksi database belum tersedia.");
+      var authResult = await window.supabaseClient.auth.signUp({ email: email, password: pass });
+      if (authResult.error) throw new Error(authResult.error.message);
       var newAccount = createStoreAccount(name, user, pass);
-      $("registerMsg").textContent = "Akun toko berhasil dibuat. Data toko Anda sudah siap.";
+      if (authResult.data.user) await window.supabaseClient.from("store_profiles").upsert({ local_id: newAccount.id, auth_user_id: authResult.data.user.id, name: name, username: user.toLowerCase(), email: email }, { onConflict: "local_id" });
+      $("registerMsg").textContent = "Akun berhasil dibuat. Email digunakan untuk autentikasi database; login tetap memakai username toko.";
       $("loginUser").value = newAccount.username;
       $("loginPass").value = newAccount.password;
       $("loginErr").textContent = "";
       $("registerName").value = "";
       $("registerUser").value = "";
+      $("registerEmail").value = "";
       $("registerPass").value = "";
       setAuthView("login");
       loginToStore(newAccount);

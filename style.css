@@ -19,20 +19,6 @@
   --font-body: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0f1715; --surface: #17211e; --surface-2: #1d2a26; --fg: #e8efec; --muted: #94a59e;
-    --line: #2b3a35; --accent: #3fc3a6; --accent-fg: #07211b; --accent-soft: #173a32;
-    --warn: #f0a15c; --warn-soft: #3a2a17; --bad: #ff8a7d; --paper: #f3f1ea; --paper-ink: #25282a;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #0f1715; --surface: #17211e; --surface-2: #1d2a26; --fg: #e8efec; --muted: #94a59e;
-  --line: #2b3a35; --accent: #3fc3a6; --accent-fg: #07211b; --accent-soft: #173a32;
-  --warn: #f0a15c; --warn-soft: #3a2a17; --bad: #ff8a7d; --paper: #f3f1ea; --paper-ink: #25282a;
-  color-scheme: dark;
-}
 * { box-sizing: border-box; }
 body {
   background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
