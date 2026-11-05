@@ -399,7 +399,11 @@
       var authResult = await window.supabaseClient.auth.signUp({ email: email, password: pass });
       if (authResult.error) throw new Error(authResult.error.message);
       var newAccount = createStoreAccount(name, user, pass);
-      if (authResult.data.user) await window.supabaseClient.from("store_profiles").upsert({ local_id: newAccount.id, auth_user_id: authResult.data.user.id, name: name, username: user.toLowerCase(), email: email }, { onConflict: "local_id" });
+      if (!authResult.data.user) throw new Error("Supabase tidak mengembalikan user. Periksa pengaturan Email Auth.");
+      var profileSave = await window.supabaseClient.from("store_profiles").upsert({ local_id: newAccount.id, auth_user_id: authResult.data.user.id, name: name, username: user.toLowerCase(), email: email }, { onConflict: "local_id" });
+      if (profileSave.error) throw new Error("Profil Supabase gagal disimpan: " + profileSave.error.message);
+      var accountSave = await window.supabaseClient.from("store_accounts").upsert({ local_id: newAccount.id, name: name, username: user.toLowerCase(), password: pass }, { onConflict: "local_id" });
+      if (accountSave.error) throw new Error("Akun Supabase gagal disimpan: " + accountSave.error.message);
       $("registerMsg").textContent = "Akun berhasil dibuat. Email digunakan untuk autentikasi database; login tetap memakai username toko.";
       $("loginUser").value = newAccount.username;
       $("loginPass").value = newAccount.password;
