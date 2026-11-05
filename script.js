@@ -23,7 +23,7 @@
   function syncStoreData(k, v) {
     if (!currentStore || !window.supabaseClient) return;
     window.supabaseClient.from("store_data").upsert({ store_id: String(currentStore.id), data_key: String(k).replace(/^kasir\./, ""), data: v, updated_at: new Date().toISOString() }, { onConflict: "store_id,data_key" })
-      .catch(function () { /* localStorage tetap menjadi fallback offline */ });
+      .then(function () {}, function () { /* localStorage tetap menjadi fallback offline */ });
   }
   function hydrateStoreData(done) {
     if (!currentStore || !window.supabaseClient) { if (done) done(); return; }
@@ -32,7 +32,7 @@
         localStorage.setItem(storeAwareKey("kasir." + row.data_key), JSON.stringify(row.data));
       });
       if (done) done();
-    }).catch(function () { if (done) done(); });
+    }).then(function () {}, function () { if (done) done(); });
   }
   function esc(s) { return String(s).replace(/[&<>\"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 
@@ -121,12 +121,9 @@
     if (accounts.some(function (acc) { return String(acc.username).toLowerCase() === safeUser.toLowerCase(); })) {
       throw new Error("Username sudah dipakai oleh toko lain. Gunakan nama toko lain atau username lain.");
     }
-    var account = { id: "store-" + safeUser + "-" + Date.now(), name: safeName, username: safeUser, password: safePass };
+    var account = { id: "store-" + safeUser + "-" + Date.now(), name: safeName, username: safeUser };
     accounts.push(account);
     localStorage.setItem("kasir.accounts", JSON.stringify(accounts));
-    if (window.supabaseClient) {
-      window.supabaseClient.from("store_accounts").upsert({ local_id: account.id, name: account.name, username: account.username, password: account.password }, { onConflict: "local_id" }).catch(function () {});
-    }
     return account;
   }
   ensureDefaultAccounts();
@@ -374,7 +371,6 @@
         var authResult = await window.supabaseClient.auth.signInWithPassword({ email: profileResult.data.email, password: pass });
         if (authResult.error) { $("loginErr").textContent = "Username atau password salah."; return; }
         acc = acc || { id: profileResult.data.local_id, name: profileResult.data.name, username: profileResult.data.username, password: pass };
-        if (!findAccount(user, pass)) { var stored = getAccounts(); stored.push(acc); localStorage.setItem("kasir.accounts", JSON.stringify(stored)); }
       }
     }
     if (!acc) {
@@ -406,7 +402,7 @@
       if (accountSave.error) throw new Error("Akun Supabase gagal disimpan: " + accountSave.error.message);
       $("registerMsg").textContent = "Akun berhasil dibuat. Email digunakan untuk autentikasi database; login tetap memakai username toko.";
       $("loginUser").value = newAccount.username;
-      $("loginPass").value = newAccount.password;
+      $("loginPass").value = "";
       $("loginErr").textContent = "";
       $("registerName").value = "";
       $("registerUser").value = "";

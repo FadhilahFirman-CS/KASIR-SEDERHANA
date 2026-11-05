@@ -6,7 +6,7 @@
   var key = "kasir.store." + auth.id + ".qris";
   function syncRemote(value) {
     if (!window.supabaseClient) return;
-    window.supabaseClient.from("store_data").upsert({ store_id: String(auth.id), data_key: "qris", data: value, updated_at: new Date().toISOString() }, { onConflict: "store_id,data_key" }).catch(function () {});
+    window.supabaseClient.from("store_data").upsert({ store_id: String(auth.id), data_key: "qris", data: value, updated_at: new Date().toISOString() }, { onConflict: "store_id,data_key" }).then(function () {}, function () {});
   }
   document.getElementById("storeName").textContent = "Toko: " + (auth.username || "Kasir Warung");
 

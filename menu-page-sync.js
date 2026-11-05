@@ -8,7 +8,7 @@
     if (!value || value === last) return;
     last = value;
     try {
-      window.supabaseClient.from("store_data").upsert({ store_id: String(auth.id), data_key: "menu", data: JSON.parse(value), updated_at: new Date().toISOString() }, { onConflict: "store_id,data_key" }).catch(function () {});
+      window.supabaseClient.from("store_data").upsert({ store_id: String(auth.id), data_key: "menu", data: JSON.parse(value), updated_at: new Date().toISOString() }).then(function () {}, function () {});
     } catch (e) {}
   }, 500);
 }());
