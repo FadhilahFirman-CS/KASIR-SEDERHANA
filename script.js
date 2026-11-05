@@ -175,7 +175,13 @@
   var CATS = ["Makanan", "Minuman", "Camilan"];
   var CAT_HUE = { Makanan: 28, Minuman: 205, Camilan: 330 };
   var currentStoreMeta = null;
-  var defaultMenu = [];
+  var defaultMenu = [
+    { name: "Nasi Goreng", price: 18000, cat: "Makanan" },
+    { name: "Indomie Goreng", price: 12000, cat: "Makanan" },
+    { name: "Kopi Susu", price: 10000, cat: "Minuman" },
+    { name: "Es Teh", price: 5000, cat: "Minuman" },
+    { name: "Gorengan", price: 2000, cat: "Camilan" }
+  ];
   var menu = load("kasir.menu", defaultMenu);
   var pantry = load("kasir.pantry", []);
   if (!Array.isArray(menu)) menu = defaultMenu;
@@ -201,8 +207,9 @@
     });
   }
   function refreshStoreDataLocal() {
-    menu = load("kasir.menu", defaultMenu);
-    if (!Array.isArray(menu)) menu = defaultMenu;
+    var savedMenu = load("kasir.menu", null);
+    menu = Array.isArray(savedMenu) && savedMenu.length ? savedMenu : JSON.parse(JSON.stringify(defaultMenu));
+    if (!Array.isArray(savedMenu) || !savedMenu.length) save("kasir.menu", menu);
     menu.forEach(function (m) { if (CATS.indexOf(m.cat) < 0) m.cat = catOf[String(m.name).toLowerCase()] || "Makanan"; });
     history = load("kasir.history", []);
     qrisPayload = load("kasir.qris", "");
@@ -398,8 +405,6 @@
       if (!authResult.data.user) throw new Error("Supabase tidak mengembalikan user. Periksa pengaturan Email Auth.");
       var profileSave = await window.supabaseClient.from("store_profiles").upsert({ local_id: newAccount.id, auth_user_id: authResult.data.user.id, name: name, username: user.toLowerCase(), email: email }, { onConflict: "local_id" });
       if (profileSave.error) throw new Error("Profil Supabase gagal disimpan: " + profileSave.error.message);
-      var accountSave = await window.supabaseClient.from("store_accounts").upsert({ local_id: newAccount.id, name: name, username: user.toLowerCase(), password: pass }, { onConflict: "local_id" });
-      if (accountSave.error) throw new Error("Akun Supabase gagal disimpan: " + accountSave.error.message);
       $("registerMsg").textContent = "Akun berhasil dibuat. Email digunakan untuk autentikasi database; login tetap memakai username toko.";
       $("loginUser").value = newAccount.username;
       $("loginPass").value = "";
