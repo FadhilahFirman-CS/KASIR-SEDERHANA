@@ -61,30 +61,18 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
   <script>
     (function () {
       'use strict';
-      function getCurrentStore() {
-        try { return JSON.parse(localStorage.getItem('kasir.currentStore') || 'null'); }
-        catch (e) { return null; }
-      }
-      function storeAwareKey(key) {
-        var store = getCurrentStore();
-        if (!store || !store.id) return key;
-        return 'kasir.store.' + store.id + '.' + String(key).replace(/^kasir\./, '');
-      }
-      function load(key, fallback) {
-        try {
-          var value = localStorage.getItem(storeAwareKey(key));
-          return value ? JSON.parse(value) : fallback;
-        } catch (e) { return fallback; }
-      }
+      var currentUser = null;
       function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
       function fmt(n) { return 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(Number(n || 0))); }
       function p2(n) { return ('0' + n).slice(-2); }
       function ymd(d) { return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }
       function qtyOf(t) { return (t.items || []).reduce(function (sum, item) { return sum + (Number(item.qty) || 0); }, 0); }
-      var history = Array.isArray(load('kasir.history', [])) ? load('kasir.history', []) : [];
+      var history = [];
       var reportKind = 'Mingguan';
       var repTable = document.getElementById('repTable');
       var repNote = document.getElementById('repNote');
@@ -253,12 +241,22 @@
       backBtn.addEventListener('click', function () { window.location.href = 'index.html'; });
       if (exportBtn) exportBtn.addEventListener('click', exportExcel);
       document.getElementById('clearReportHistory').addEventListener('click', function () {
-        localStorage.removeItem(storeAwareKey('kasir.history'));
-        history = [];
-        renderHistoryList();
-        renderReport();
+        if (!currentUser) return;
+        window.supabaseClient.from('transactions').delete().eq('store_id', currentUser.id).then(function (result) {
+          if (result.error) throw result.error;
+          history = []; renderHistoryList(); renderReport();
+        }).catch(function (error) { expStatus.textContent = 'Gagal menghapus riwayat: ' + error.message; });
       });
-      renderReport();
+      window.supabaseClient.auth.getUser().then(function (sessionResult) {
+        currentUser = sessionResult.data && sessionResult.data.user;
+        if (!currentUser) { window.location.href = 'index.html'; return; }
+        return window.supabaseClient.from('transactions').select('id,invoice_no,subtotal,discount,total,paid,change_amount,payment_method,created_at,transaction_items(name,price,quantity,total)').eq('store_id', currentUser.id).order('created_at', { ascending: false });
+      }).then(function (result) {
+        if (!result) return;
+        if (result.error) throw result.error;
+        history = (result.data || []).map(function (row) { return { no: row.invoice_no, time: row.created_at, subtotal: row.subtotal, discount: row.discount, total: row.total, paid: row.paid, change: row.change_amount, method: row.payment_method, items: (row.transaction_items || []).map(function (item) { return { name: item.name, price: item.price, qty: item.quantity }; }) }; });
+        renderReport();
+      }).catch(function (error) { expStatus.textContent = 'Gagal memuat laporan: ' + error.message; renderReport(); });
       requestAnimationFrame(function () {
         document.body.classList.add('page-ready');
       });

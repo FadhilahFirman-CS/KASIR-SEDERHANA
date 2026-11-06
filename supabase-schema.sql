@@ -88,12 +88,21 @@ alter table public.store_accounts enable row level security;
 alter table public.store_profiles enable row level security;
 
 -- Demo policies: replace with authenticated-user policies before production use.
+drop policy if exists "demo stores access" on public.stores;
+drop policy if exists "demo menus access" on public.menus;
+drop policy if exists "demo inventory access" on public.inventory;
+drop policy if exists "demo qris access" on public.qris_settings;
+drop policy if exists "demo transactions access" on public.transactions;
+drop policy if exists "demo transaction items access" on public.transaction_items;
+drop policy if exists "demo store data access" on public.store_data;
+drop policy if exists "demo store accounts access" on public.store_accounts;
+drop policy if exists "demo store profiles access" on public.store_profiles;
+
 create policy "demo stores access" on public.stores for all using (true) with check (true);
 create policy "demo menus access" on public.menus for all using (true) with check (true);
 create policy "demo inventory access" on public.inventory for all using (true) with check (true);
 create policy "demo qris access" on public.qris_settings for all using (true) with check (true);
 create policy "demo transactions access" on public.transactions for all using (true) with check (true);
 create policy "demo transaction items access" on public.transaction_items for all using (true) with check (true);
-create policy "demo store data access" on public.store_data for all using (true) with check (true);
 create policy "demo store accounts access" on public.store_accounts for all using (true) with check (true);
 create policy "demo store profiles access" on public.store_profiles for all using (true) with check (true);

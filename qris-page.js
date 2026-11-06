@@ -1,15 +1,31 @@
 (function () {
   "use strict";
-  var auth, input = document.getElementById("qrisInput"), status = document.getElementById("qrisStatus");
-  try { auth = JSON.parse(localStorage.getItem("kasir.currentStore") || "null"); } catch (e) { auth = null; }
-  if (!auth || !auth.id) { window.location.href = "index.html"; return; }
-  var key = "kasir.store." + auth.id + ".qris";
+  var auth, qrisValue = "", input = document.getElementById("qrisInput"), status = document.getElementById("qrisStatus");
+  var client = window.supabaseClient;
+  async function initAuth() {
+    var result = await client.auth.getUser(), user = result.data && result.data.user;
+    if (!user) { window.location.href = "index.html"; return null; }
+    var profile = await client.from("store_profiles").select("local_id,name,username").eq("auth_user_id", user.id).maybeSingle();
+    auth = profile.data || { local_id: user.id, username: user.email, name: "Kasir Warung" }; auth.authId = user.id; return user;
+  }
   function syncRemote(value) {
     if (!window.supabaseClient) return;
-    window.supabaseClient.from("store_data").upsert({ store_id: String(auth.id), data_key: "qris", data: value, updated_at: new Date().toISOString() }, { onConflict: "store_id,data_key" }).then(function () {}, function () {});
+    var client = window.supabaseClient;
+    client.auth.getUser().then(function (sessionResult) {
+      var user = sessionResult.data && sessionResult.data.user;
+      if (!user) throw new Error("Sesi Supabase tidak aktif. Login kembali sebelum menyimpan QRIS.");
+      return client.from("stores").upsert({ id: user.id, name: auth.name || auth.username || "Kasir Warung", username: auth.username || user.email }, { onConflict: "id" })
+        .then(function (storeResult) {
+          if (storeResult.error) throw storeResult.error;
+          return client.from("qris_settings").upsert({ store_id: user.id, payload: value, updated_at: new Date().toISOString() }, { onConflict: "store_id" });
+        });
+    }).then(function (result) {
+      if (result && result.error) throw result.error;
+      status.textContent = "QRIS tersimpan di Supabase dan terhubung ke dashboard.";
+    }).catch(function (error) {
+      status.textContent = "QRIS gagal disimpan ke Supabase: " + (error.message || error);
+    });
   }
-  document.getElementById("storeName").textContent = "Toko: " + (auth.username || "Kasir Warung");
-
   function crc16(text) {
     var crc = 0xffff;
     for (var i = 0; i < text.length; i++) {
@@ -48,10 +64,9 @@
   }
 
   function render() {
-    var value = localStorage.getItem(key) || "";
-    input.value = value;
-    if (!value) status.textContent = "Belum disetel. Tempel kode QRIS yang diawali 000201.";
-    else status.textContent = validate(value).ok ? "QRIS berhasil tersimpan dan otomatis terhubung ke dashboard kasir." : "QRIS tersimpan, tetapi format belum tervalidasi. Silakan uji scan di kasir.";
+    input.value = qrisValue;
+    if (!qrisValue) status.textContent = "Belum disetel. Tempel kode QRIS yang diawali 000201.";
+    else status.textContent = validate(qrisValue).ok ? "QRIS berhasil tersimpan dan otomatis terhubung ke dashboard kasir." : "QRIS tersimpan, tetapi format belum tervalidasi. Silakan uji scan di kasir.";
   }
 
   document.getElementById("qrisSave").onclick = function () {
@@ -59,12 +74,11 @@
     var result = validate(input.value);
     if (!input.value.trim()) { status.textContent = "Kode QRIS masih kosong."; return; }
     var savedValue = result.ok ? result.clean : input.value.replace(/[\r\n\t]+/g, "").trim();
-    localStorage.setItem(key, savedValue);
-    localStorage.setItem("kasir.qris", savedValue);
+    qrisValue = savedValue;
     syncRemote(savedValue);
     render();
   };
-  document.getElementById("qrisClear").onclick = function () { localStorage.removeItem(key); render(); };
+  document.getElementById("qrisClear").onclick = async function () { qrisValue = ""; await client.from("qris_settings").delete().eq("store_id", auth.authId); render(); };
   document.getElementById("backBtn").onclick = function () { window.location.href = "index.html"; };
   document.getElementById("qrisFile").onchange = function () {
     var file = this.files && this.files[0]; if (!file || typeof jsQR !== "function") return;
@@ -89,8 +103,7 @@
         input.value = result.data;
         var checked = validate(result.data);
         var savedValue = checked.ok ? checked.clean : result.data.replace(/[\r\n\t]+/g, "").trim();
-        localStorage.setItem(key, savedValue);
-        localStorage.setItem("kasir.qris", savedValue);
+        qrisValue = savedValue;
         syncRemote(savedValue);
         render();
       };
@@ -98,5 +111,9 @@
     };
     reader.readAsDataURL(file);
   };
-  render();
+  initAuth().then(async function () {
+    document.getElementById("storeName").textContent = "Toko: " + (auth.username || "Kasir Warung");
+    var result = await client.from("qris_settings").select("payload").eq("store_id", auth.authId).maybeSingle();
+    qrisValue = result.data ? result.data.payload : ""; render();
+  }).catch(function (error) { status.textContent = error.message || "Gagal memuat QRIS."; });
 }());
