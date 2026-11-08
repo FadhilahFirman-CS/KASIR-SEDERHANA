@@ -68,7 +68,7 @@
           var user = sessionResult.data && sessionResult.data.user;
           if (!user) throw new Error('Sesi Supabase tidak aktif. Login kembali.');
           window.currentStore = { id: user.id, name: user.email, username: user.email };
-          return client.from('stores').upsert({ id: user.id, name: auth.name || auth.username || 'Kasir Warung', username: auth.username || user.email }, { onConflict: 'id' })
+          return client.from('stores').upsert({ id: user.id, name: user.email || 'Kasir Warung', username: user.email }, { onConflict: 'id' })
             .then(function (storeResult) {
               if (storeResult.error) throw storeResult.error;
               return client.from('inventory').delete().eq('store_id', user.id);

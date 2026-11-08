@@ -250,11 +250,11 @@
       window.supabaseClient.auth.getUser().then(function (sessionResult) {
         currentUser = sessionResult.data && sessionResult.data.user;
         if (!currentUser) { window.location.href = 'index.html'; return; }
-        return window.supabaseClient.from('transactions').select('id,invoice_no,subtotal,discount,total,paid,change_amount,payment_method,created_at,transaction_items(name,price,quantity,total)').eq('store_id', currentUser.id).order('created_at', { ascending: false });
+        return window.supabaseClient.from('transactions').select('id,invoice_no,customer_name,subtotal,discount,total,paid,change_amount,payment_method,created_at,transaction_items(name,price,quantity,total)').eq('store_id', currentUser.id).order('created_at', { ascending: false });
       }).then(function (result) {
         if (!result) return;
         if (result.error) throw result.error;
-        history = (result.data || []).map(function (row) { return { no: row.invoice_no, time: row.created_at, subtotal: row.subtotal, discount: row.discount, total: row.total, paid: row.paid, change: row.change_amount, method: row.payment_method, items: (row.transaction_items || []).map(function (item) { return { name: item.name, price: item.price, qty: item.quantity }; }) }; });
+        history = (result.data || []).map(function (row) { return { no: row.invoice_no, customer: row.customer_name || '', time: row.created_at, subtotal: row.subtotal, discount: row.discount, total: row.total, paid: row.paid, change: row.change_amount, method: row.payment_method, items: (row.transaction_items || []).map(function (item) { return { name: item.name, price: item.price, qty: item.quantity }; }) }; });
         renderReport();
       }).catch(function (error) { expStatus.textContent = 'Gagal memuat laporan: ' + error.message; renderReport(); });
       requestAnimationFrame(function () {

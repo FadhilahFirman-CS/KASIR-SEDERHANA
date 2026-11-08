@@ -33,6 +33,7 @@ create table if not exists public.transactions (
   id uuid primary key default gen_random_uuid(),
   store_id uuid not null references public.stores(id) on delete cascade,
   invoice_no text not null,
+  customer_name text,
   subtotal integer not null default 0,
   discount integer not null default 0,
   total integer not null default 0,
@@ -42,6 +43,8 @@ create table if not exists public.transactions (
   created_at timestamptz not null default now(),
   unique (store_id, invoice_no)
 );
+
+alter table public.transactions add column if not exists customer_name text;
 
 create table if not exists public.transaction_items (
   id uuid primary key default gen_random_uuid(),
