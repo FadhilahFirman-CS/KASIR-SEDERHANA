@@ -411,7 +411,7 @@ header.top .sub { color: inherit; opacity: 0.82; }
 .chip { background: color-mix(in srgb, var(--accent-fg) 14%, transparent); border: 0; color: inherit; }
 .chip small { color: inherit; opacity: 0.75; }
 .today { align-items: stretch; }
-.theme-btn { background: color-mix(in srgb, var(--accent-fg) 14%, transparent); color: inherit; border: 0; font-size: 0.85rem; }
+.theme-btn { display: inline-block; text-decoration: none; cursor: pointer; background: color-mix(in srgb, var(--accent-fg) 14%, transparent); color: inherit; border: 0; font-size: 0.85rem; }
 .theme-btn:hover { background: color-mix(in srgb, var(--accent-fg) 24%, transparent); }
 .panel { box-shadow: 0 1px 2px rgba(10, 30, 25, 0.05), 0 10px 26px -14px rgba(10, 30, 25, 0.18); }
 .panel h2::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: middle; }
@@ -457,6 +457,42 @@ button:active:not(:disabled) { transform: translateY(1px); }
 @keyframes slideUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes stampIn { from { opacity: 0; transform: rotate(-8deg) scale(1.8); } to { opacity: 0.85; transform: rotate(-8deg) scale(1); } }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Final visual system: consistent rhythm, contrast, and responsive navigation. */
+header.top { gap: 20px; box-shadow: 0 16px 34px -22px rgba(9, 65, 52, 0.55); }
+header.top h1 { letter-spacing: -0.035em; }
+header.top .today { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+header.top .theme-btn { min-height: 38px; padding: 9px 13px; border: 1px solid rgba(255,255,255,0.16); border-radius: 9px; font-weight: 700; white-space: nowrap; transition: background .18s ease, transform .18s ease; }
+header.top .theme-btn:hover { transform: translateY(-1px); }
+header.top .theme-btn:focus-visible, a:focus-visible, button:focus-visible { outline: 3px solid rgba(52, 205, 177, .55); outline-offset: 2px; }
+.panel { border: 1px solid rgba(20, 54, 45, .07); border-radius: 15px; }
+input, select, textarea { transition: border-color .18s ease, box-shadow .18s ease, background .18s ease; }
+input:focus, select:focus, textarea:focus { border-color: #53b9a5; box-shadow: 0 0 0 4px rgba(50, 176, 150, .12); outline: none; }
+button, .theme-btn { -webkit-tap-highlight-color: transparent; }
+.menu-item, .cart-row, .pantry-row, .hist li { border-color: rgba(20, 54, 45, .10); }
+.empty { border: 1px dashed #b7c8c1; border-radius: 12px; background: rgba(255,255,255,.48); padding: 18px; color: var(--muted); text-align: center; }
+
+@media (max-width: 760px) {
+  body { padding: 10px 10px 24px; }
+  header.top { padding: 15px; align-items: flex-start; }
+  header.top > div:first-child { width: 100%; }
+  header.top .today { width: 100%; justify-content: flex-start; }
+  header.top .chip { flex: 1 1 30%; min-width: 105px; }
+  header.top .theme-btn { flex: 1 1 auto; text-align: center; }
+  .auth-card { grid-template-columns: 1fr; padding: 12px; border-radius: 18px; }
+  .auth-card .auth-visual { min-height: 190px; }
+  .auth-card h2 { font-size: 2.45rem; }
+}
+
+@media (max-width: 480px) {
+  body { font-size: 14px; }
+  header.top h1 { font-size: 1.55rem; }
+  header.top .chip { min-width: calc(50% - 4px); }
+  header.top .theme-btn { min-width: calc(50% - 4px); }
+  .panel { border-radius: 12px; padding: 14px; }
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .auth-screen { padding: 10px 0; }
+}
 
 /* Layout bersama: seluruh halaman memakai ruang viewport secara penuh. */
 html, body { min-width: 0; min-height: 100%; }

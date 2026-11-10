@@ -63,10 +63,10 @@
         <div class="chip"><small>Waktu</small><b id="clockV" style="font-size:0.9rem">-</b></div>
         <div class="chip"><small>Transaksi hari ini</small><b id="sumCount">0</b></div>
         <div class="chip"><small>Pendapatan hari ini</small><b id="sumTotal">Rp 0</b></div>
-        <button type="button" class="theme-btn" id="openPantryBtn">Stok gudang</button>
-        <button type="button" class="theme-btn" id="openReportPageBtn">Laporan</button>
-        <button type="button" class="theme-btn" id="openQrisBtn">QRIS</button>
-        <button type="button" class="theme-btn" id="openManageMenuBtn">Kelola menu</button>
+        <a class="theme-btn" id="openPantryBtn" href="gudang.html">Stok gudang</a>
+        <a class="theme-btn" id="openReportPageBtn" href="laporan.html">Laporan</a>
+        <a class="theme-btn" id="openQrisBtn" href="qris.html">QRIS</a>
+        <a class="theme-btn" id="openManageMenuBtn" href="menu.html">Kelola menu</a>
         <button type="button" class="theme-btn" id="logoutBtn" style="margin-left:4px;">Keluar</button>
       </div>
     </header>
@@ -258,8 +258,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-config.js"></script>
+  <script src="local-storage.js"></script>
   <script>
     window.addEventListener('DOMContentLoaded', function () {
       requestAnimationFrame(function () {

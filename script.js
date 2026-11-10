@@ -8,18 +8,22 @@
   var memoryStore = Object.create(null);
   var SESSION_STORE_KEY = "kasir.currentStore";
   function saveCurrentStoreSession(account) {
-    try { sessionStorage.setItem(SESSION_STORE_KEY, JSON.stringify(account)); } catch (e) {}
+    var value = JSON.stringify(account);
+    try { sessionStorage.setItem(SESSION_STORE_KEY, value); } catch (e) {}
+    try { localStorage.setItem("kasir.demo.v1.session", value); } catch (e) {}
   }
   function loadCurrentStoreSession() {
+    var raw = null;
     try {
-      var raw = sessionStorage.getItem(SESSION_STORE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
+      raw = sessionStorage.getItem(SESSION_STORE_KEY);
+    } catch (e) {}
+    if (!raw) { try { raw = localStorage.getItem("kasir.demo.v1.session"); } catch (e) {} }
+    try { return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
   }
   function storeAwareKey(k) {
     return String(k).replace(/^kasir\./, "");
   }
-  function load(k, d) { var key = storeAwareKey(k); return Object.prototype.hasOwnProperty.call(memoryStore, key) ? memoryStore[key] : d; }
+  function load(k, d) { var key = storeAwareKey(k); if (Object.prototype.hasOwnProperty.call(memoryStore, key)) return memoryStore[key]; try { var v = localStorage.getItem("kasir.demo." + (currentStore ? currentStore.id + "." : "") + key); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
   function syncMenus(items) {
     if (!currentStore || !currentStore.authId || !window.supabaseClient) return;
     window.supabaseClient.from("menus").delete().eq("store_id", currentStore.authId).then(function (result) {
@@ -36,63 +40,23 @@
       if (result && result.error) throw result.error;
     }).catch(function (error) {
       console.error("Gagal menyimpan stok", error);
-      toast("Stok tersimpan lokal, tetapi gagal ke Supabase: " + (error.message || "periksa database"));
+      toast("Stok tersimpan lokal. Sinkronisasi demo gagal: " + (error.message || "coba lagi"));
     });
   }
   function save(k, v) {
-    var key = storeAwareKey(k); memoryStore[key] = v;
+    var key = storeAwareKey(k); memoryStore[key] = v; try { localStorage.setItem("kasir.demo." + (currentStore ? currentStore.id + "." : "") + key, JSON.stringify(v)); } catch (e) {}
     if (key === "menu") syncMenus(Array.isArray(v) ? v : []);
     if (key === "pantry") syncInventoryData(Array.isArray(v) ? v : []);
-    if (key !== "menu" && key !== "pantry" && key !== "history") syncStoreData(k, v);
     return true;
-  }
-  function syncStoreData(k, v) {
-    if (!currentStore || !window.supabaseClient) return;
-    window.supabaseClient.from("store_data").upsert({ store_id: String(currentStore.id), data_key: String(k).replace(/^kasir\./, ""), data: v, updated_at: new Date().toISOString() }, { onConflict: "store_id,data_key" })
-      .then(function () {}, function () { console.error("Supabase store_data sync failed"); });
-  }
-  function hydrateStoreData(done) {
-    if (!currentStore || !window.supabaseClient) { if (done) done(); return; }
-    window.supabaseClient.from("store_data").select("data_key,data").eq("store_id", currentStore.id).then(function (result) {
-      if (!result.error && Array.isArray(result.data)) result.data.forEach(function (row) {
-        memoryStore[storeAwareKey("kasir." + row.data_key)] = row.data;
-      });
-      if (done) done();
-    }).then(function () {}, function () { if (done) done(); });
   }
   function esc(s) { return String(s).replace(/[&<>\"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 
   function getAccounts() {
     try {
-      return [];
+      return JSON.parse(localStorage.getItem("kasir.demo.accounts") || "[]");
     } catch (e) {
       return [];
     }
-  }
-  function clearDemoData() {
-    try {
-      var accounts = getAccounts().filter(function (acc) {
-        var name = String(acc && acc.name || "").toLowerCase();
-        var user = String(acc && acc.username || "").toLowerCase();
-        return !(name === "warung maju" || name === "warung sejahtera" || user === "warung1" || user === "warung2");
-      });
-
-      var menuData = load("kasir.menu", []);
-      if (Array.isArray(menuData) && menuData.length) {
-        var seededMenuNames = ["nasi goreng", "indomie goreng", "roti bakar", "kopi susu", "americano", "teh manis", "es teh", "air mineral", "gorengan", "pisang goreng", "kentang goreng"];
-        var cleanMenu = menuData.filter(function (item) {
-          return !seededMenuNames.includes(String(item && item.name || "").trim().toLowerCase());
-        });
-        if (cleanMenu.length !== menuData.length) {
-          memoryStore.menu = cleanMenu;
-        }
-      }
-
-      var historyData = load("kasir.history", []);
-      if (Array.isArray(historyData) && historyData.length) {
-        memoryStore.history = [];
-      }
-    } catch (e) {}
   }
   function normalizeStoreUsername(value) {
     return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 30) || "warung";
@@ -119,6 +83,7 @@
         map[key] = true;
       }
     });
+    try { localStorage.setItem("kasir.demo.accounts", JSON.stringify(accounts)); } catch (e) {}
   }
   function findAccount(username, password) {
     var accounts = getAccounts();
@@ -126,7 +91,7 @@
       return String(acc.username).toLowerCase() === String(username).trim().toLowerCase() && String(acc.password) === String(password).trim();
     }) || null;
   }
-  // Data aplikasi disimpan di Supabase; memoryStore hanya cache selama halaman aktif.
+  // Data demo disimpan lokal per toko.
 
   function createStoreAccount(storeName, username, password) {
     var safeName = String(storeName || "").trim();
@@ -141,20 +106,17 @@
     }
     var account = { id: "store-" + safeUser + "-" + Date.now(), name: safeName, username: safeUser };
     accounts.push(account);
+    try { localStorage.setItem("kasir.demo.accounts", JSON.stringify(accounts)); } catch (e) {}
     return account;
   }
   ensureDefaultAccounts();
   function loginToStore(account) {
+    account.authId = account.authId || account.id;
     currentStore = account;
     saveCurrentStoreSession(account);
     $("shopTitle").textContent = account.name;
     $("authScreen").hidden = true;
     $("appShell").hidden = false;
-    if (account.authId && window.supabaseClient) {
-      window.supabaseClient.from("stores").upsert({ id: account.authId, name: account.name || "Kasir Warung", username: account.username || account.authId }, { onConflict: "id" })
-        .then(function (result) { if (result.error) throw result.error; refreshStoreData(); })
-        .catch(function (error) { $("loginErr").textContent = "Toko gagal disiapkan di Supabase: " + error.message; });
-    }
     refreshStoreData();
     resetSale();
     renderMenu(); renderManage(); renderPantryList(); renderCart(); renderHistory(); renderQrisStatus();
@@ -162,6 +124,7 @@
   function logoutStore() {
     currentStore = null;
     try { sessionStorage.removeItem(SESSION_STORE_KEY); } catch (e) {}
+    try { localStorage.removeItem("kasir.demo.v1.session"); } catch (e) {}
     $("appShell").hidden = true;
     $("authScreen").hidden = false;
     $("loginErr").textContent = "";
@@ -196,7 +159,6 @@
   var SHOP = "Kasir Warung";
   var CATS = ["Makanan", "Minuman", "Camilan"];
   var CAT_HUE = { Makanan: 28, Minuman: 205, Camilan: 330 };
-  var currentStoreMeta = null;
   var defaultMenu = [
     { name: "Nasi Goreng", price: 18000, cat: "Makanan" },
     { name: "Indomie Goreng", price: 12000, cat: "Makanan" },
@@ -221,21 +183,8 @@
 
   function refreshStoreData() {
     if (!currentStore) return;
-    var remoteId = currentStore.authId || currentStore.id;
-    Promise.all([
-      window.supabaseClient.from("menus").select("name,price,category").eq("store_id", remoteId).order("created_at", { ascending: true }),
-      window.supabaseClient.from("inventory").select("name,unit,stock").eq("store_id", remoteId).order("created_at", { ascending: true }),
-      window.supabaseClient.from("qris_settings").select("payload").eq("store_id", remoteId).maybeSingle(),
-      window.supabaseClient.from("transactions").select("invoice_no,customer_name,subtotal,discount,total,paid,change_amount,payment_method,created_at,transaction_items(name,price,quantity)").eq("store_id", remoteId).order("created_at", { ascending: false }).limit(5000)
-    ]).then(function (results) {
-      results.forEach(function (result) { if (result.error) throw result.error; });
-      memoryStore.menu = (results[0].data || []).map(function (m) { return { name: m.name, price: m.price, cat: m.category }; });
-      memoryStore.pantry = (results[1].data || []).map(function (p) { return { name: p.name, unit: p.unit, stock: Number(p.stock) || 0 }; });
-      memoryStore.qris = results[2].data ? results[2].data.payload : "";
-      memoryStore.history = (results[3].data || []).map(function (t) { return { no: t.invoice_no, customer: t.customer_name || "", time: t.created_at, subtotal: t.subtotal, discount: t.discount, total: t.total, paid: t.paid, change: t.change_amount, method: t.payment_method, items: (t.transaction_items || []).map(function (i) { return { name: i.name, price: i.price, qty: i.quantity }; }) }; });
-      refreshStoreDataLocal();
-      renderMenu(); renderManage(); renderPantryList(); renderCart(); renderHistory(); renderQrisStatus();
-    }).catch(function (error) { console.error("Gagal memuat data Supabase", error); $("loginErr").textContent = "Gagal memuat data toko: " + error.message; });
+    refreshStoreDataLocal();
+    renderMenu(); renderManage(); renderPantryList(); renderCart(); renderHistory(); renderQrisStatus();
   }
   function refreshStoreDataLocal() {
     var savedMenu = load("kasir.menu", null);
@@ -402,15 +351,6 @@
     var user = $("loginUser").value.trim();
     var pass = $("loginPass").value.trim();
     var acc = findAccount(user, pass);
-    if (window.supabaseClient) {
-      var profileResult = await window.supabaseClient.from("store_profiles").select("*").eq("username", user.toLowerCase()).maybeSingle();
-      if (profileResult.error) { $("loginErr").textContent = "Profil toko gagal dibaca dari Supabase: " + profileResult.error.message; return; }
-      if (profileResult.data) {
-        var authResult = await window.supabaseClient.auth.signInWithPassword({ email: profileResult.data.email, password: pass });
-        if (authResult.error) { $("loginErr").textContent = authResult.error.message || "Username atau password salah."; return; }
-        acc = { id: profileResult.data.local_id, name: profileResult.data.name, username: profileResult.data.username, authId: profileResult.data.auth_user_id };
-      }
-    }
     if (!acc) {
       $("loginErr").textContent = "Username atau password salah.";
       return;
@@ -428,27 +368,11 @@
     var email = $("registerEmail").value.trim().toLowerCase();
     var pass = $("registerPass").value.trim();
     try {
-      if (!email) throw new Error("Email wajib digunakan untuk autentikasi database.");
-      if (!window.supabaseClient) throw new Error("Koneksi database belum tersedia.");
-      var authResult = await window.supabaseClient.auth.signUp({ email: email, password: pass });
-      if (authResult.error) throw new Error(authResult.error.message);
       var newAccount = createStoreAccount(name, user, pass);
-      if (!authResult.data.user) throw new Error("Supabase tidak mengembalikan user. Periksa pengaturan Email Auth.");
-      newAccount.authId = authResult.data.user.id;
-      var profileSave = await window.supabaseClient.from("store_profiles").upsert({ local_id: newAccount.id, auth_user_id: authResult.data.user.id, name: name, username: user.toLowerCase(), email: email }, { onConflict: "local_id" });
-      if (profileSave.error) throw new Error("Profil Supabase gagal disimpan: " + profileSave.error.message);
-      if (!authResult.data.session) {
-        $("registerMsg").textContent = "Akun berhasil dibuat. Buka email konfirmasi dari Supabase, lalu login dengan username dan password Anda.";
-        $("loginUser").value = newAccount.username;
-        $("loginPass").value = "";
-        $("registerName").value = "";
-        $("registerUser").value = "";
-        $("registerEmail").value = "";
-        $("registerPass").value = "";
-        setAuthView("login");
-        return;
-      }
-      $("registerMsg").textContent = "Akun berhasil dibuat dan siap digunakan.";
+      newAccount.email = email;
+      newAccount.password = pass;
+      var accounts = getAccounts(); accounts[accounts.length - 1] = newAccount; localStorage.setItem("kasir.demo.accounts", JSON.stringify(accounts));
+      $("registerMsg").textContent = "Akun berhasil dibuat dan siap digunakan di browser ini.";
       $("loginUser").value = newAccount.username;
       $("loginPass").value = "";
       $("loginErr").textContent = "";
@@ -466,34 +390,15 @@
 
   setAuthView("login");
 
-  // Pulihkan tampilan toko saat kembali dari halaman "Lainnya". Sesi Supabase
-  // tetap menjadi sumber kebenaran dan akan memvalidasi data ini di bawah.
+  // Pulihkan sesi demo dari browser.
   var savedStore = loadCurrentStoreSession();
-  if (savedStore && savedStore.authId) {
+  if (savedStore && savedStore.id) {
     currentStore = savedStore;
     $("shopTitle").textContent = savedStore.name || "Kasir Warung";
     $("authScreen").hidden = true;
     $("appShell").hidden = false;
+    refreshStoreData();
   }
-
-  if (window.supabaseClient) window.supabaseClient.auth.getUser().then(async function (result) {
-    var user = result.data && result.data.user;
-    if (!user) {
-      currentStore = null;
-      try { sessionStorage.removeItem(SESSION_STORE_KEY); } catch (e) {}
-      $("authScreen").hidden = false;
-      $("appShell").hidden = true;
-      return;
-    }
-    var profile = await window.supabaseClient.from("store_profiles").select("local_id,name,username,email").eq("auth_user_id", user.id).maybeSingle();
-    if (profile.data) {
-      currentStore = { id: profile.data.local_id, name: profile.data.name, username: profile.data.username, authId: user.id };
-      saveCurrentStoreSession(currentStore);
-      $("shopTitle").textContent = currentStore.name; $("authScreen").hidden = true; $("appShell").hidden = false; refreshStoreData();
-    }
-  }).catch(function () {
-    if (!currentStore) { $("authScreen").hidden = false; $("appShell").hidden = true; }
-  });
 
   function crc16(str) {
     var crc = 0xFFFF;
@@ -575,8 +480,7 @@
     if (!qrisPayload) { st.textContent = "Belum disetel. Unggah gambar QRIS toko Anda, atau tempel teks kodenya (panjang, diawali 000201). Nomor seperti ID102... adalah NMID, bukan kode QRIS. Setelah tersimpan, QR di kasir otomatis berisi nominal sesuai total belanja."; return; }
     var c = checkPayload(qrisPayload);
     if (c.ok) {
-      st.textContent = "Tersimpan" + (c.name ? " untuk " + c.name : "") + ". QRIS berhasil tersambung ke kasir.";
-      toast("QRIS berhasil tersambung ke kasir");
+      st.textContent = "QRIS aktif" + (c.name ? " untuk " + c.name : "") + ". QR pembayaran siap digunakan.";
     } else {
       st.textContent = c.msg;
     }
@@ -615,8 +519,8 @@
         var c = checkPayload(text);
         $("qrisInput").value = text;
         if (!c.ok) { st.textContent = "QR terbaca, tetapi isinya belum cocok dengan kode QRIS. " + c.msg; return; }
-        qrisPayload = c.clean; save("kasir.qris", qrisPayload); $("qrisInput").value = c.clean;
-        renderQrisStatus(); renderTotals(); toast("QRIS terbaca dan tersimpan");
+        $("qrisInput").value = c.clean;
+        st.textContent = "QR terbaca. Tekan Simpan QRIS untuk menyimpan dan menerapkannya.";
       };
       img.src = rd.result;
     };
@@ -775,7 +679,7 @@
     var client = window.supabaseClient;
     client.auth.getUser().then(function (sessionResult) {
       var user = sessionResult.data && sessionResult.data.user;
-      if (!user) throw new Error("Sesi Supabase tidak aktif");
+      if (!user) throw new Error("Sesi toko lokal tidak aktif");
       return client.from("stores").upsert({ id: user.id, name: currentStore.name || currentStore.username || "Kasir Warung", username: currentStore.username || user.email }, { onConflict: "id" })
         .then(function (storeResult) {
           if (storeResult.error) throw storeResult.error;
@@ -798,8 +702,8 @@
     }).then(function (itemResult) {
       if (itemResult.error) throw itemResult.error;
     }).catch(function (error) {
-      console.error("Gagal menyimpan transaksi ke Supabase", error);
-      toast("Gagal menyimpan transaksi ke Supabase: " + (error.message || "periksa koneksi/database"));
+      console.error("Gagal menyimpan transaksi lokal", error);
+      toast("Transaksi gagal disimpan: " + (error.message || "coba lagi"));
     });
   }
   function pay() {

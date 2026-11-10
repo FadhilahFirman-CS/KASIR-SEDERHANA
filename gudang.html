@@ -45,8 +45,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-config.js"></script>
+  <script src="local-storage.js"></script>
   <script>
     (function () {
       'use strict';
@@ -66,7 +65,7 @@
         if (!client) return;
         client.auth.getUser().then(function (sessionResult) {
           var user = sessionResult.data && sessionResult.data.user;
-          if (!user) throw new Error('Sesi Supabase tidak aktif. Login kembali.');
+          if (!user) throw new Error('Sesi toko lokal tidak aktif. Buka dashboard kembali.');
           window.currentStore = { id: user.id, name: user.email, username: user.email };
           return client.from('stores').upsert({ id: user.id, name: user.email || 'Kasir Warung', username: user.email }, { onConflict: 'id' })
             .then(function (storeResult) {
@@ -81,10 +80,10 @@
             });
         }).then(function (result) {
           if (result && result.error) throw result.error;
-          setStatus('Data stok tersimpan di Supabase.');
+          setStatus('Data stok tersimpan di browser.');
         }).catch(function (error) {
-          console.error('Gagal menyimpan inventory ke Supabase', error);
-          setStatus('Stok tersimpan di browser, tetapi gagal ke Supabase: ' + (error.message || error));
+          console.error('Gagal menyimpan inventory lokal', error);
+          setStatus('Stok tersimpan di browser, tetapi sinkronisasi demo gagal: ' + (error.message || error));
         });
       }
       function esc(s) {
@@ -221,16 +220,16 @@
 
       backBtn.addEventListener('click', function () { window.location.href = 'index.html'; });
       if (exportBtn) exportBtn.addEventListener('click', exportExcel);
-      window.supabaseClient.auth.getUser().then(function (sessionResult) {
-        var user = sessionResult.data && sessionResult.data.user;
-        if (!user) { window.location.href = 'index.html'; return; }
+      Promise.resolve().then(function () {
+        var user = window.demoSession ? window.demoSession() : null;
+        if (!user) user = { id: 'demo-local', email: 'demo@local' };
         window.currentStore = { id: user.id, name: user.email, username: user.email };
         return window.supabaseClient.from('inventory').select('name,unit,stock,created_at').eq('store_id', user.id).order('created_at', { ascending: true });
       }).then(function (result) {
         if (result && result.error) throw result.error;
         pantry = result && result.data ? result.data.map(function (item) { return { name: item.name, unit: item.unit, stock: Number(item.stock) || 0 }; }) : [];
-        renderPantry(); setStatus('Data stok dimuat dari Supabase.');
-      }).catch(function (error) { renderPantry(); setStatus('Gagal memuat stok dari Supabase: ' + (error.message || error)); });
+        renderPantry(); setStatus('Data stok dimuat dari browser.');
+      }).catch(function (error) { renderPantry(); setStatus('Gagal memuat stok lokal: ' + (error.message || error)); });
       requestAnimationFrame(function () {
         document.body.classList.add('page-ready');
       });

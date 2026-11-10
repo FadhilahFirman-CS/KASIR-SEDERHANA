@@ -10,7 +10,6 @@
     <section class="panel"><h2>QRIS toko</h2><label for="qrisFile">Unggah gambar QRIS toko</label><input type="file" id="qrisFile" accept="image/*" style="width:100%;margin-bottom:12px"><label for="qrisInput">Atau tempel teks kode QRIS</label><textarea id="qrisInput" rows="5" placeholder="000201010211..." spellcheck="false"></textarea><div class="row-actions"><button type="button" class="primary" id="qrisSave">Simpan QRIS</button><button type="button" class="ghost danger" id="qrisClear">Hapus</button></div><p class="hint" id="qrisStatus" role="status"></p></section>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-config.js"></script>
+  <script src="local-storage.js"></script>
   <script src="qris-page.js"></script>
 </body></html>

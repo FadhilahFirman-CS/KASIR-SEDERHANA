@@ -61,8 +61,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-config.js"></script>
+  <script src="local-storage.js"></script>
   <script>
     (function () {
       'use strict';
@@ -247,9 +246,9 @@
           history = []; renderHistoryList(); renderReport();
         }).catch(function (error) { expStatus.textContent = 'Gagal menghapus riwayat: ' + error.message; });
       });
-      window.supabaseClient.auth.getUser().then(function (sessionResult) {
-        currentUser = sessionResult.data && sessionResult.data.user;
-        if (!currentUser) { window.location.href = 'index.html'; return; }
+      Promise.resolve().then(function () {
+        currentUser = window.demoSession ? window.demoSession() : null;
+        if (!currentUser) currentUser = { id: 'demo-local', email: 'demo@local' };
         return window.supabaseClient.from('transactions').select('id,invoice_no,customer_name,subtotal,discount,total,paid,change_amount,payment_method,created_at,transaction_items(name,price,quantity,total)').eq('store_id', currentUser.id).order('created_at', { ascending: false });
       }).then(function (result) {
         if (!result) return;
